@@ -6,49 +6,18 @@ import {
   ClipboardDocumentListIcon,
   ClockIcon,
   ShoppingBagIcon,
-  UserIcon
+  UserIcon,
+  ArrowPathIcon,
+  SparklesIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
 const router = useRouter()
 
-const orders = ref([
-  {
-    id: 101,
-    customerName: 'João Silva',
-    items: '2x X-Bacon, 1x Coca-Cola 2L',
-    total: 58.00,
-    address: 'Rua das Flores, 123 - Centro',
-    paymentMethod: 'PIX',
-    observations: 'Sem cebola no X-Bacon',
-    status: 'Aguardando',
-    createdAt: new Date(Date.now() - 1000 * 60 * 5) // 5 mins ago
-  },
-  {
-    id: 102,
-    customerName: 'Maria Oliveira',
-    items: '1x Pizza Calabresa Grande',
-    total: 45.00,
-    address: 'Av. Paulista, 1500 - Bela Vista',
-    paymentMethod: 'Cartão de Crédito',
-    observations: '',
-    status: 'Em preparação',
-    createdAt: new Date(Date.now() - 1000 * 60 * 25) // 25 mins ago
-  },
-  {
-    id: 103,
-    customerName: 'Pedro Santos',
-    items: '1x Açaí 500ml',
-    total: 18.00,
-    address: 'Rua Augusta, 500 - Consolação',
-    paymentMethod: 'Dinheiro',
-    observations: 'Troco para 50',
-    status: 'Enviado',
-    createdAt: new Date(Date.now() - 1000 * 60 * 45) // 45 mins ago
-  }
-])
+const orders = ref<any[]>([])
+const loading = ref(true)
 
-const statusOptions = ['Aguardando', 'Em preparação', 'Enviado']
+const statusOptions = ['Aguardando', 'Em preparação', 'Enviado', 'Entregue', 'Cancelado']
 
 onMounted(async () => {
   if (!user.value) {
@@ -58,16 +27,68 @@ onMounted(async () => {
   if (!user.value) {
     return navigateTo('/login')
   }
+
+  await fetchOrders()
 })
 
-const handleLogout = async () => {
-  await logout()
+const fetchOrders = async () => {
+  loading.value = true
+  try {
+    const data = await $fetch('/api/orders')
+    orders.value = data
+  } catch (e) {
+    console.error('Failed to fetch orders', e)
+  } finally {
+    loading.value = false
+  }
 }
 
-const updateStatus = (orderId: number, newStatus: string) => {
+const updateStatus = async (orderId: number, newStatus: string) => {
   const order = orders.value.find(o => o.id === orderId)
-  if (order) {
-    order.status = newStatus
+  if (!order) return
+
+  const oldStatus = order.status
+  order.status = newStatus // Optimistic update
+
+  try {
+    await $fetch(`/api/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: { status: newStatus }
+    })
+  } catch (e) {
+    order.status = oldStatus // Revert
+    alert('Erro ao atualizar status.')
+  }
+}
+
+const simulateOrder = async () => {
+  try {
+    // Generate random order data
+    const mockOrder = {
+      customer_name: `Cliente Teste ${Math.floor(Math.random() * 100)}`,
+      customer_phone: '11999999999',
+      address: 'Rua Exemplo, 123',
+      payment_method: Math.random() > 0.5 ? 'PIX' : 'Cartão',
+      total: (Math.random() * 100 + 20).toFixed(2),
+      status: 'Aguardando',
+      observations: Math.random() > 0.7 ? 'Sem cebola' : '',
+      items: [
+        {
+          menu_item_id: null, // Just a simulation
+          item_name: 'Item Simulado ' + Math.floor(Math.random() * 5),
+          item_price: 25.00,
+          quantity: 1
+        }
+      ]
+    }
+
+    await $fetch('/api/orders', {
+      method: 'POST',
+      body: mockOrder
+    })
+    await fetchOrders()
+  } catch (e) {
+    alert('Erro ao simular pedido')
   }
 }
 
@@ -75,9 +96,16 @@ const getStatusStyles = (status: string) => {
   switch (status) {
     case 'Aguardando': return 'bg-yellow-50 text-yellow-700 border-yellow-200'
     case 'Em preparação': return 'bg-blue-50 text-blue-700 border-blue-200'
-    case 'Enviado': return 'bg-green-50 text-green-700 border-green-200'
+    case 'Enviado': return 'bg-purple-50 text-purple-700 border-purple-200'
+    case 'Entregue': return 'bg-green-50 text-green-700 border-green-200'
+    case 'Cancelado': return 'bg-red-50 text-red-700 border-red-200'
     default: return 'bg-gray-50 text-gray-700 border-gray-200'
   }
+}
+
+const formatItems = (items: any[]) => {
+  if (!items || items.length === 0) return 'Sem itens'
+  return items.map(i => `${i.quantity}x ${i.item_name}`).join(', ')
 }
 
 const stats = computed(() => {
@@ -91,6 +119,23 @@ const stats = computed(() => {
 
 <template>
   <AppLayout>
+    <div class="sm:flex sm:items-center sm:justify-between mb-8">
+      <div>
+        <!-- Stats Overview -->
+        <!-- Just header here for now or reuse stats logic -->
+      </div>
+      <div class="flex gap-2">
+         <button @click="fetchOrders" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
+          <ArrowPathIcon class="-ml-0.5 mr-2 h-5 w-5" :class="{ 'animate-spin': loading }" />
+          Atualizar
+        </button>
+        <button @click="simulateOrder" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors">
+          <SparklesIcon class="-ml-0.5 mr-2 h-5 w-5" />
+          Simular Pedido IA
+        </button>
+      </div>
+    </div>
+
     <!-- Stats Overview -->
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
       <div v-for="stat in stats" :key="stat.name" class="bg-white overflow-hidden shadow-sm rounded-xl border border-slate-100">
@@ -114,8 +159,22 @@ const stats = computed(() => {
 
     <h2 class="text-lg font-bold text-slate-800 mb-6">Pedidos Recentes</h2>
 
+    <!-- Loading State -->
+    <div v-if="loading && orders.length === 0" class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+       <div v-for="i in 3" :key="i" class="animate-pulse bg-white rounded-xl h-64 border border-slate-200"></div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else-if="orders.length === 0" class="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
+      <div class="mx-auto h-12 w-12 text-slate-400">
+        <ClipboardDocumentListIcon class="h-12 w-12" />
+      </div>
+      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum pedido ainda</h3>
+      <p class="mt-1 text-sm text-slate-500">Aguarde a IA enviar os pedidos do WhatsApp.</p>
+    </div>
+
     <!-- Orders Grid -->
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       <div v-for="order in orders" :key="order.id" class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-300 flex flex-col">
         
         <!-- Card Header -->
@@ -124,11 +183,11 @@ const stats = computed(() => {
             <div class="flex items-center gap-2 mb-1">
               <span class="text-sm font-bold text-slate-900">#{{ order.id }}</span>
               <span class="text-xs text-slate-400">•</span>
-              <span class="text-sm text-slate-500">{{ new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+              <span class="text-sm text-slate-500">{{ new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
             </div>
             <div class="flex items-center gap-1.5 text-slate-700">
               <UserIcon class="h-4 w-4 text-slate-400" />
-              <span class="text-sm font-medium">{{ order.customerName }}</span>
+              <span class="text-sm font-medium">{{ order.customer_name }}</span>
             </div>
           </div>
           <span :class="[getStatusStyles(order.status), 'px-2.5 py-1 rounded-full text-xs font-semibold border']">
@@ -141,7 +200,7 @@ const stats = computed(() => {
           <!-- Items -->
           <div>
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Itens do Pedido</p>
-            <p class="text-sm text-slate-800 leading-relaxed">{{ order.items }}</p>
+            <p class="text-sm text-slate-800 leading-relaxed">{{ formatItems(order.order_items) }}</p>
           </div>
 
           <!-- Observations -->
@@ -161,12 +220,12 @@ const stats = computed(() => {
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Pagamento</p>
               <div class="flex items-center gap-1.5 text-slate-700">
                 <BanknotesIcon class="h-4 w-4 text-slate-400" />
-                <span class="text-sm">{{ order.paymentMethod }}</span>
+                <span class="text-sm">{{ order.payment_method }}</span>
               </div>
             </div>
             <div>
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total</p>
-              <p class="text-lg font-bold text-emerald-600">R$ {{ order.total.toFixed(2) }}</p>
+              <p class="text-lg font-bold text-emerald-600">R$ {{ Number(order.total).toFixed(2) }}</p>
             </div>
           </div>
 
@@ -181,8 +240,8 @@ const stats = computed(() => {
         </div>
 
         <!-- Card Footer / Actions -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl">
-          <div class="flex gap-2">
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl overflow-x-auto">
+          <div class="flex gap-2 min-w-max">
             <button 
               v-for="status in statusOptions" 
               :key="status"
@@ -191,7 +250,7 @@ const stats = computed(() => {
                 order.status === status 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-2' 
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
-                'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-center'
+                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-center whitespace-nowrap'
               ]"
             >
               {{ status }}
