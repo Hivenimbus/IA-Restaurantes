@@ -12,7 +12,8 @@ import {
   CheckIcon,
   XMarkIcon,
   ArchiveBoxIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  PhoneIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
@@ -269,6 +270,10 @@ const stats = computed(() => {
             <div class="flex items-center gap-1.5 text-slate-700">
               <UserIcon class="h-4 w-4 text-slate-400" />
               <span class="text-sm font-medium">{{ order.customer_name }}</span>
+            </div>
+            <div v-if="order.customer_phone" class="flex items-center gap-1.5 text-slate-700 mt-1">
+              <PhoneIcon class="h-4 w-4 text-slate-400" />
+              <span class="text-sm">{{ order.customer_phone }}</span>
             </div>
           </div>
           <span :class="[getStatusStyles(order.status), 'px-2.5 py-1 rounded-full text-xs font-semibold border']">
