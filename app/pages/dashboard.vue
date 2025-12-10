@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import { 
+  ArrowRightOnRectangleIcon, 
+  MapPinIcon, 
+  BanknotesIcon, 
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  ShoppingBagIcon,
+  UserIcon
+} from '@heroicons/vue/24/outline'
+
 const { user, logout, fetchUser } = useAuth()
 const router = useRouter()
 
@@ -61,103 +71,134 @@ const updateStatus = (orderId: number, newStatus: string) => {
   }
 }
 
-const getStatusColor = (status: string) => {
+const getStatusStyles = (status: string) => {
   switch (status) {
-    case 'Aguardando': return 'bg-yellow-100 text-yellow-800'
-    case 'Em preparação': return 'bg-blue-100 text-blue-800'
-    case 'Enviado': return 'bg-green-100 text-green-800'
-    default: return 'bg-gray-100 text-gray-800'
+    case 'Aguardando': return 'bg-yellow-50 text-yellow-700 border-yellow-200'
+    case 'Em preparação': return 'bg-blue-50 text-blue-700 border-blue-200'
+    case 'Enviado': return 'bg-green-50 text-green-700 border-green-200'
+    default: return 'bg-gray-50 text-gray-700 border-gray-200'
   }
 }
+
+const stats = computed(() => {
+  return [
+    { name: 'Total de Pedidos', value: orders.value.length, icon: ClipboardDocumentListIcon, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { name: 'Aguardando', value: orders.value.filter(o => o.status === 'Aguardando').length, icon: ClockIcon, color: 'text-yellow-600', bg: 'bg-yellow-100' },
+    { name: 'Em Preparação', value: orders.value.filter(o => o.status === 'Em preparação').length, icon: ShoppingBagIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
+  ]
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow">
-      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-        <h1 class="text-3xl font-bold tracking-tight text-gray-900">
-          {{ user?.establishment_name || 'Dashboard Restaurante' }}
-        </h1>
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-500">{{ user?.email }}</span>
-          <button @click="handleLogout" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
-            Sair
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <div class="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-        <!-- Orders List -->
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="order in orders" :key="order.id" class="overflow-hidden bg-white shadow rounded-lg border border-gray-200">
-            <div class="px-4 py-5 sm:p-6">
-              <div class="flex justify-between items-start mb-4">
-                <div>
-                  <h3 class="text-lg font-medium leading-6 text-gray-900">Pedido #{{ order.id }}</h3>
-                  <p class="text-sm text-gray-500">{{ new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</p>
-                </div>
-                <span :class="[getStatusColor(order.status), 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']">
-                  {{ order.status }}
-                </span>
-              </div>
-              
-              <div class="space-y-3">
-                <div>
-                  <p class="text-sm font-medium text-gray-500">Cliente</p>
-                  <p class="text-sm text-gray-900">{{ order.customerName }}</p>
-                </div>
-                
-                <div>
-                  <p class="text-sm font-medium text-gray-500">Itens</p>
-                  <p class="text-sm text-gray-900">{{ order.items }}</p>
-                </div>
-
-                <div v-if="order.observations">
-                  <p class="text-sm font-medium text-gray-500">Observações</p>
-                  <p class="text-sm text-yellow-600 bg-yellow-50 p-2 rounded mt-1">{{ order.observations }}</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <p class="text-sm font-medium text-gray-500">Pagamento</p>
-                    <p class="text-sm text-gray-900">{{ order.paymentMethod }}</p>
-                  </div>
-                  <div>
-                    <p class="text-sm font-medium text-gray-500">Total</p>
-                    <p class="text-lg font-bold text-green-600">R$ {{ order.total.toFixed(2) }}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p class="text-sm font-medium text-gray-500">Endereço</p>
-                  <p class="text-sm text-gray-900 truncate" :title="order.address">{{ order.address }}</p>
-                </div>
-              </div>
-
-              <!-- Actions -->
-              <div class="mt-6 pt-4 border-t border-gray-100">
-                <p class="text-xs text-gray-500 mb-2">Alterar Status:</p>
-                <div class="flex gap-2">
-                  <button 
-                    v-for="status in statusOptions" 
-                    :key="status"
-                    @click="updateStatus(order.id, status)"
-                    :class="[
-                      order.status === status ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                      'px-2 py-1 rounded text-xs font-medium transition-colors'
-                    ]"
-                  >
-                    {{ status }}
-                  </button>
-                </div>
-              </div>
+  <AppLayout>
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+      <div v-for="stat in stats" :key="stat.name" class="bg-white overflow-hidden shadow-sm rounded-xl border border-slate-100">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <component :is="stat.icon" class="h-6 w-6" :class="stat.color" aria-hidden="true" />
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-slate-500 truncate">{{ stat.name }}</dt>
+                <dd>
+                  <div class="text-lg font-bold text-slate-900">{{ stat.value }}</div>
+                </dd>
+              </dl>
             </div>
           </div>
         </div>
       </div>
-    </main>
-  </div>
+    </div>
+
+    <h2 class="text-lg font-bold text-slate-800 mb-6">Pedidos Recentes</h2>
+
+    <!-- Orders Grid -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div v-for="order in orders" :key="order.id" class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-300 flex flex-col">
+        
+        <!-- Card Header -->
+        <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-start">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm font-bold text-slate-900">#{{ order.id }}</span>
+              <span class="text-xs text-slate-400">•</span>
+              <span class="text-sm text-slate-500">{{ new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-slate-700">
+              <UserIcon class="h-4 w-4 text-slate-400" />
+              <span class="text-sm font-medium">{{ order.customerName }}</span>
+            </div>
+          </div>
+          <span :class="[getStatusStyles(order.status), 'px-2.5 py-1 rounded-full text-xs font-semibold border']">
+            {{ order.status }}
+          </span>
+        </div>
+
+        <!-- Card Body -->
+        <div class="px-6 py-5 flex-1 space-y-4">
+          <!-- Items -->
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Itens do Pedido</p>
+            <p class="text-sm text-slate-800 leading-relaxed">{{ order.items }}</p>
+          </div>
+
+          <!-- Observations -->
+          <div v-if="order.observations" class="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+            <p class="text-xs font-semibold text-yellow-700 mb-1 flex items-center gap-1">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Observação
+            </p>
+            <p class="text-sm text-slate-700 italic">{{ order.observations }}</p>
+          </div>
+
+          <!-- Details Grid -->
+          <div class="grid grid-cols-2 gap-4 pt-2">
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Pagamento</p>
+              <div class="flex items-center gap-1.5 text-slate-700">
+                <BanknotesIcon class="h-4 w-4 text-slate-400" />
+                <span class="text-sm">{{ order.paymentMethod }}</span>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total</p>
+              <p class="text-lg font-bold text-emerald-600">R$ {{ order.total.toFixed(2) }}</p>
+            </div>
+          </div>
+
+          <!-- Address -->
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Entrega</p>
+            <div class="flex items-start gap-1.5 text-slate-600">
+              <MapPinIcon class="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <span class="text-sm leading-tight">{{ order.address }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Footer / Actions -->
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl">
+          <div class="flex gap-2">
+            <button 
+              v-for="status in statusOptions" 
+              :key="status"
+              @click="updateStatus(order.id, status)"
+              :class="[
+                order.status === status 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-2' 
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
+                'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-center'
+              ]"
+            >
+              {{ status }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </AppLayout>
 </template>
