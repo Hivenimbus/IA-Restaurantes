@@ -5,7 +5,8 @@ import {
   TrashIcon, 
   PhotoIcon,
   TagIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, fetchUser } = useAuth()
@@ -15,13 +16,15 @@ const showModal = ref(false)
 const saving = ref(false)
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
+const searchQuery = ref('')
 
 const form = ref({
   name: '',
   description: '',
   price: '',
   category: '',
-  image_url: ''
+  image_url: '',
+  is_available: true
 })
 
 const categories = ['Lanches', 'Bebidas', 'Sobremesas', 'Pratos', 'Porções', 'Outros']
@@ -44,6 +47,15 @@ const fetchMenuItems = async () => {
   }
 }
 
+const filteredMenuItems = computed(() => {
+  if (!searchQuery.value) return menuItems.value
+  const query = searchQuery.value.toLowerCase()
+  return menuItems.value.filter((item: any) => 
+    item.name.toLowerCase().includes(query) || 
+    item.description?.toLowerCase().includes(query)
+  )
+})
+
 const openModal = (item?: any) => {
   if (item) {
     isEditing.value = true
@@ -52,7 +64,14 @@ const openModal = (item?: any) => {
   } else {
     isEditing.value = false
     editingId.value = null
-    form.value = { name: '', description: '', price: '', category: 'Lanches', image_url: '' }
+    form.value = { 
+      name: '', 
+      description: '', 
+      price: '', 
+      category: 'Lanches', 
+      image_url: '',
+      is_available: true
+    }
   }
   showModal.value = true
 }
@@ -84,6 +103,23 @@ const saveItem = async () => {
   }
 }
 
+const toggleAvailability = async (item: any) => {
+  // Optimistic update
+  const originalStatus = item.is_available
+  item.is_available = !item.is_available
+  
+  try {
+    await $fetch(`/api/menu/${item.id}`, {
+      method: 'PUT',
+      body: { ...item, is_available: item.is_available }
+    })
+  } catch (e) {
+    // Revert on error
+    item.is_available = originalStatus
+    alert('Erro ao atualizar disponibilidade.')
+  }
+}
+
 const deleteItem = async (id: string) => {
   if (!confirm('Tem certeza que deseja excluir este item?')) return
   
@@ -111,19 +147,34 @@ const deleteItem = async (id: string) => {
       </div>
     </div>
 
+    <!-- Search Bar -->
+    <div class="mb-8 max-w-md">
+      <div class="relative rounded-md shadow-sm">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+          <MagnifyingGlassIcon class="h-5 w-5 text-slate-400" aria-hidden="true" />
+        </div>
+        <input 
+          type="text" 
+          v-model="searchQuery" 
+          class="block w-full rounded-md border-0 py-2.5 pl-10 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+          placeholder="Buscar item pelo nome..."
+        >
+      </div>
+    </div>
+
     <!-- Loading State -->
     <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <div v-for="i in 4" :key="i" class="animate-pulse bg-white rounded-xl h-64 border border-slate-200"></div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="menuItems.length === 0" class="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
+    <div v-else-if="filteredMenuItems.length === 0" class="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
       <div class="mx-auto h-12 w-12 text-slate-400">
         <ClipboardDocumentListIcon class="h-12 w-12" />
       </div>
-      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum item no cardápio</h3>
-      <p class="mt-1 text-sm text-slate-500">Comece adicionando novos produtos.</p>
-      <div class="mt-6">
+      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum item encontrado</h3>
+      <p class="mt-1 text-sm text-slate-500">{{ searchQuery ? 'Tente buscar com outro termo.' : 'Comece adicionando novos produtos.' }}</p>
+      <div class="mt-6" v-if="!searchQuery">
         <button @click="openModal()" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
           <PlusIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
           Adicionar Item
@@ -133,26 +184,46 @@ const deleteItem = async (id: string) => {
 
     <!-- Grid -->
     <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      <div v-for="item in menuItems" :key="item.id" class="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+      <div v-for="item in filteredMenuItems" :key="item.id" class="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
         
         <!-- Image placeholder or actual image -->
         <div class="aspect-h-1 aspect-w-1 w-full overflow-hidden bg-slate-200 xl:aspect-h-8 xl:aspect-w-7 h-48 relative">
-          <img v-if="item.image_url" :src="item.image_url" :alt="item.name" class="h-full w-full object-cover object-center group-hover:opacity-90 transition-opacity" />
-          <div v-else class="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400">
+          <img 
+            v-if="item.image_url && item.image_url.trim() !== ''" 
+            :src="item.image_url" 
+            :alt="item.name" 
+            class="h-full w-full object-cover object-center group-hover:opacity-90 transition-opacity"
+            :class="{'opacity-50 grayscale': !item.is_available}"
+          />
+          <div v-else class="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400" :class="{'opacity-50 grayscale': !item.is_available}">
             <PhotoIcon class="h-12 w-12" />
           </div>
           <span class="absolute top-2 right-2 inline-flex items-center rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur-sm">
             {{ item.category }}
           </span>
+          <div v-if="!item.is_available" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
+            <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Indisponível</span>
+          </div>
         </div>
 
         <div class="p-4 flex-1 flex flex-col">
-          <h3 class="text-lg font-bold text-slate-900 truncate" :title="item.name">{{ item.name }}</h3>
+          <div class="flex justify-between items-start">
+            <h3 class="text-lg font-bold text-slate-900 truncate flex-1" :title="item.name" :class="{'text-slate-500': !item.is_available}">
+              {{ item.name }}
+            </h3>
+          </div>
+          
           <p class="mt-1 text-sm text-slate-500 line-clamp-2 flex-1">{{ item.description || 'Sem descrição.' }}</p>
           
           <div class="mt-4 flex items-center justify-between">
-            <p class="text-lg font-bold text-emerald-600">R$ {{ Number(item.price).toFixed(2) }}</p>
+            <p class="text-lg font-bold text-emerald-600" :class="{'text-emerald-600/50': !item.is_available}">R$ {{ Number(item.price).toFixed(2) }}</p>
             <div class="flex gap-2">
+              <button @click.stop="toggleAvailability(item)" :class="[item.is_available ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-50']" class="p-1.5 rounded-md transition-colors" :title="item.is_available ? 'Marcar como Indisponível' : 'Marcar como Disponível'">
+                <div v-if="item.is_available" class="h-5 w-5 rounded-full border-2 border-current flex items-center justify-center">
+                  <div class="h-2.5 w-2.5 rounded-full bg-current"></div>
+                </div>
+                <div v-else class="h-5 w-5 rounded-full border-2 border-slate-300"></div>
+              </button>
               <button @click="openModal(item)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" title="Editar">
                 <PencilSquareIcon class="h-5 w-5" />
               </button>
@@ -218,6 +289,16 @@ const deleteItem = async (id: string) => {
                         <input type="text" name="image_url" id="image_url" v-model="form.image_url" class="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3" placeholder="https://exemplo.com/foto.jpg">
                       </div>
                     </div>
+
+                    <div class="relative flex gap-x-3">
+                      <div class="flex h-6 items-center">
+                        <input id="is_available" name="is_available" type="checkbox" v-model="form.is_available" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                      </div>
+                      <div class="text-sm leading-6">
+                        <label for="is_available" class="font-medium text-slate-900">Disponível para venda</label>
+                        <p class="text-slate-500">Se desmarcado, este item não aparecerá para os clientes.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -234,4 +315,3 @@ const deleteItem = async (id: string) => {
     </div>
   </AppLayout>
 </template>
-
