@@ -10,7 +10,9 @@ import {
   ArrowPathIcon,
   SparklesIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArchiveBoxIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
@@ -18,6 +20,8 @@ const router = useRouter()
 
 const orders = ref<any[]>([])
 const loading = ref(true)
+const activeTab = ref<'active' | 'history'>('active')
+const historySearchQuery = ref('')
 
 const statusOptions = ['Aguardando', 'Em preparação', 'Enviado']
 
@@ -37,14 +41,32 @@ const fetchOrders = async () => {
   loading.value = true
   try {
     const data = await $fetch('/api/orders')
-    // Filter out completed/cancelled orders on frontend for now
-    orders.value = (data as any[]).filter(o => o.status !== 'Entregue' && o.status !== 'Cancelado')
+    orders.value = data as any[]
   } catch (e) {
     console.error('Failed to fetch orders', e)
   } finally {
     loading.value = false
   }
 }
+
+const activeOrders = computed(() => {
+  return orders.value.filter(o => o.status !== 'Entregue' && o.status !== 'Cancelado')
+})
+
+const historyOrders = computed(() => {
+  let list = orders.value.filter(o => o.status === 'Entregue' || o.status === 'Cancelado')
+  
+  if (historySearchQuery.value) {
+    const query = historySearchQuery.value.toLowerCase()
+    list = list.filter(o => o.customer_name?.toLowerCase().includes(query))
+  }
+  
+  return list
+})
+
+const currentList = computed(() => {
+  return activeTab.value === 'active' ? activeOrders.value : historyOrders.value
+})
 
 const updateStatus = async (orderId: number, newStatus: string) => {
   const order = orders.value.find(o => o.id === orderId)
@@ -53,7 +75,10 @@ const updateStatus = async (orderId: number, newStatus: string) => {
   const oldStatus = order.status
   // Optimistic update
   if (newStatus === 'Entregue' || newStatus === 'Cancelado') {
-    orders.value = orders.value.filter(o => o.id !== orderId)
+    // We don't remove from the main list, just let the computed properties handle visibility
+    // But since the status changes, it will move from active to history automatically
+    order.status = newStatus
+    order.completed_at = new Date().toISOString()
   } else {
     order.status = newStatus
   }
@@ -65,18 +90,13 @@ const updateStatus = async (orderId: number, newStatus: string) => {
     })
   } catch (e) {
     // Revert
-    if (newStatus === 'Entregue' || newStatus === 'Cancelado') {
-      orders.value.push(order)
-    } else {
-      order.status = oldStatus
-    }
+    order.status = oldStatus
     alert('Erro ao atualizar status.')
   }
 }
 
 const simulateOrder = async () => {
   try {
-    // Generate random order data
     const mockOrder = {
       customer_name: `Cliente Teste ${Math.floor(Math.random() * 100)}`,
       customer_phone: '11999999999',
@@ -87,7 +107,7 @@ const simulateOrder = async () => {
       observations: Math.random() > 0.7 ? 'Sem cebola' : '',
       items: [
         {
-          menu_item_id: null, // Just a simulation
+          menu_item_id: null,
           item_name: 'Item Simulado ' + Math.floor(Math.random() * 5),
           item_price: 25.00,
           quantity: 1
@@ -110,6 +130,8 @@ const getStatusStyles = (status: string) => {
     case 'Aguardando': return 'bg-yellow-50 text-yellow-700 border-yellow-200'
     case 'Em preparação': return 'bg-blue-50 text-blue-700 border-blue-200'
     case 'Enviado': return 'bg-purple-50 text-purple-700 border-purple-200'
+    case 'Entregue': return 'bg-green-50 text-green-700 border-green-200'
+    case 'Cancelado': return 'bg-red-50 text-red-700 border-red-200'
     default: return 'bg-gray-50 text-gray-700 border-gray-200'
   }
 }
@@ -122,8 +144,8 @@ const formatItems = (items: any[]) => {
 const stats = computed(() => {
   return [
     { name: 'Total de Pedidos', value: orders.value.length, icon: ClipboardDocumentListIcon, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-    { name: 'Aguardando', value: orders.value.filter(o => o.status === 'Aguardando').length, icon: ClockIcon, color: 'text-yellow-600', bg: 'bg-yellow-100' },
-    { name: 'Em Preparação', value: orders.value.filter(o => o.status === 'Em preparação').length, icon: ShoppingBagIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
+    { name: 'Aguardando', value: activeOrders.value.filter(o => o.status === 'Aguardando').length, icon: ClockIcon, color: 'text-yellow-600', bg: 'bg-yellow-100' },
+    { name: 'Em Preparação', value: activeOrders.value.filter(o => o.status === 'Em preparação').length, icon: ShoppingBagIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
   ]
 })
 </script>
@@ -132,8 +154,7 @@ const stats = computed(() => {
   <AppLayout>
     <div class="sm:flex sm:items-center sm:justify-between mb-8">
       <div>
-        <!-- Stats Overview -->
-        <!-- Just header here for now or reuse stats logic -->
+        <!-- Stats Overview Header -->
       </div>
       <div class="flex gap-2">
          <button @click="fetchOrders" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
@@ -168,7 +189,54 @@ const stats = computed(() => {
       </div>
     </div>
 
-    <h2 class="text-lg font-bold text-slate-800 mb-6">Pedidos Recentes</h2>
+    <!-- Tabs -->
+    <div class="border-b border-slate-200 mb-6">
+      <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+        <button 
+          @click="activeTab = 'active'"
+          :class="[
+            activeTab === 'active'
+              ? 'border-indigo-500 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            'group inline-flex items-center border-b-2 py-4 px-1 text-sm font-medium transition-colors'
+          ]"
+        >
+          <ClipboardDocumentListIcon class="-ml-0.5 mr-2 h-5 w-5" :class="activeTab === 'active' ? 'text-indigo-500' : 'text-slate-400 group-hover:text-slate-500'" />
+          <span>Em Andamento</span>
+          <span v-if="activeOrders.length > 0" class="ml-3 hidden rounded-full bg-indigo-100 py-0.5 px-2.5 text-xs font-medium text-indigo-600 md:inline-block">{{ activeOrders.length }}</span>
+        </button>
+        <button 
+          @click="activeTab = 'history'"
+          :class="[
+            activeTab === 'history'
+              ? 'border-indigo-500 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            'group inline-flex items-center border-b-2 py-4 px-1 text-sm font-medium transition-colors'
+          ]"
+        >
+          <ArchiveBoxIcon class="-ml-0.5 mr-2 h-5 w-5" :class="activeTab === 'history' ? 'text-indigo-500' : 'text-slate-400 group-hover:text-slate-500'" />
+          <span>Histórico</span>
+          <span v-if="historyOrders.length > 0" class="ml-3 hidden rounded-full bg-slate-100 py-0.5 px-2.5 text-xs font-medium text-slate-600 md:inline-block">{{ historyOrders.length }}</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Header & Filter for History -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <h2 class="text-lg font-bold text-slate-800">{{ activeTab === 'active' ? 'Pedidos Recentes' : 'Histórico de Pedidos' }}</h2>
+      
+      <div v-if="activeTab === 'history'" class="relative rounded-md shadow-sm max-w-xs w-full">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+          <MagnifyingGlassIcon class="h-5 w-5 text-slate-400" aria-hidden="true" />
+        </div>
+        <input 
+          type="text" 
+          v-model="historySearchQuery" 
+          class="block w-full rounded-md border-0 py-1.5 pl-10 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+          placeholder="Buscar cliente..." 
+        />
+      </div>
+    </div>
 
     <!-- Loading State -->
     <div v-if="loading && orders.length === 0" class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -176,17 +244,19 @@ const stats = computed(() => {
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="orders.length === 0" class="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
+    <div v-else-if="currentList.length === 0" class="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
       <div class="mx-auto h-12 w-12 text-slate-400">
         <ClipboardDocumentListIcon class="h-12 w-12" />
       </div>
-      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum pedido pendente</h3>
-      <p class="mt-1 text-sm text-slate-500">Aguarde a IA enviar os pedidos do WhatsApp.</p>
+      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum pedido encontrado</h3>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ activeTab === 'active' ? 'Aguarde a IA enviar os pedidos do WhatsApp.' : (historySearchQuery ? 'Nenhum cliente encontrado com esse nome.' : 'Você ainda não concluiu nenhum pedido.') }}
+      </p>
     </div>
 
     <!-- Orders Grid -->
     <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="order in orders" :key="order.id" class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-300 flex flex-col">
+      <div v-for="order in currentList" :key="order.id" class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-300 flex flex-col">
         
         <!-- Card Header -->
         <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-start">
@@ -250,8 +320,8 @@ const stats = computed(() => {
           </div>
         </div>
 
-        <!-- Card Footer / Actions -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl">
+        <!-- Card Footer / Actions (Only for Active Orders) -->
+        <div v-if="activeTab === 'active'" class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl overflow-x-auto">
           <div class="flex items-center justify-between gap-4">
             <!-- Status Toggles -->
             <div class="flex gap-2 flex-1">
@@ -288,6 +358,16 @@ const stats = computed(() => {
               </button>
             </div>
           </div>
+        </div>
+        
+        <!-- Footer for History (No Actions, just info) -->
+        <div v-else class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl">
+           <p class="text-xs text-slate-500 text-center">
+             {{ order.status === 'Cancelado' ? 'Cancelado' : 'Finalizado' }} em 
+             <span class="font-medium">
+               {{ order.completed_at ? new Date(order.completed_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A' }}
+             </span>
+           </p>
         </div>
       </div>
     </div>

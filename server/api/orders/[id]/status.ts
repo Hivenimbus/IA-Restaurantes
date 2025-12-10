@@ -24,9 +24,19 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { status } = body
 
+    const updateData: any = { status }
+    
+    // If status is terminal (Entregue/Cancelado), set completed_at
+    if (status === 'Entregue' || status === 'Cancelado') {
+      updateData.completed_at = new Date().toISOString()
+    } else {
+      // If moving back to active (optional logic, but safe), clear it
+      updateData.completed_at = null
+    }
+
     const { data, error } = await client
       .from('orders')
-      .update({ status })
+      .update(updateData)
       .eq('id', id)
       .eq('user_id', user.id) // Security check
       .select()
@@ -36,4 +46,3 @@ export default defineEventHandler(async (event) => {
     return data
   }
 })
-
