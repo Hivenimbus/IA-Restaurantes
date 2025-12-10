@@ -8,7 +8,9 @@ import {
   ShoppingBagIcon,
   UserIcon,
   ArrowPathIcon,
-  SparklesIcon
+  SparklesIcon,
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
@@ -17,7 +19,7 @@ const router = useRouter()
 const orders = ref<any[]>([])
 const loading = ref(true)
 
-const statusOptions = ['Aguardando', 'Em preparação', 'Enviado', 'Entregue', 'Cancelado']
+const statusOptions = ['Aguardando', 'Em preparação', 'Enviado']
 
 onMounted(async () => {
   if (!user.value) {
@@ -35,7 +37,8 @@ const fetchOrders = async () => {
   loading.value = true
   try {
     const data = await $fetch('/api/orders')
-    orders.value = data
+    // Filter out completed/cancelled orders on frontend for now
+    orders.value = (data as any[]).filter(o => o.status !== 'Entregue' && o.status !== 'Cancelado')
   } catch (e) {
     console.error('Failed to fetch orders', e)
   } finally {
@@ -48,7 +51,12 @@ const updateStatus = async (orderId: number, newStatus: string) => {
   if (!order) return
 
   const oldStatus = order.status
-  order.status = newStatus // Optimistic update
+  // Optimistic update
+  if (newStatus === 'Entregue' || newStatus === 'Cancelado') {
+    orders.value = orders.value.filter(o => o.id !== orderId)
+  } else {
+    order.status = newStatus
+  }
 
   try {
     await $fetch(`/api/orders/${orderId}/status`, {
@@ -56,7 +64,12 @@ const updateStatus = async (orderId: number, newStatus: string) => {
       body: { status: newStatus }
     })
   } catch (e) {
-    order.status = oldStatus // Revert
+    // Revert
+    if (newStatus === 'Entregue' || newStatus === 'Cancelado') {
+      orders.value.push(order)
+    } else {
+      order.status = oldStatus
+    }
     alert('Erro ao atualizar status.')
   }
 }
@@ -97,8 +110,6 @@ const getStatusStyles = (status: string) => {
     case 'Aguardando': return 'bg-yellow-50 text-yellow-700 border-yellow-200'
     case 'Em preparação': return 'bg-blue-50 text-blue-700 border-blue-200'
     case 'Enviado': return 'bg-purple-50 text-purple-700 border-purple-200'
-    case 'Entregue': return 'bg-green-50 text-green-700 border-green-200'
-    case 'Cancelado': return 'bg-red-50 text-red-700 border-red-200'
     default: return 'bg-gray-50 text-gray-700 border-gray-200'
   }
 }
@@ -169,7 +180,7 @@ const stats = computed(() => {
       <div class="mx-auto h-12 w-12 text-slate-400">
         <ClipboardDocumentListIcon class="h-12 w-12" />
       </div>
-      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum pedido ainda</h3>
+      <h3 class="mt-2 text-sm font-semibold text-slate-900">Nenhum pedido pendente</h3>
       <p class="mt-1 text-sm text-slate-500">Aguarde a IA enviar os pedidos do WhatsApp.</p>
     </div>
 
@@ -240,21 +251,42 @@ const stats = computed(() => {
         </div>
 
         <!-- Card Footer / Actions -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl overflow-x-auto">
-          <div class="flex gap-2 min-w-max">
-            <button 
-              v-for="status in statusOptions" 
-              :key="status"
-              @click="updateStatus(order.id, status)"
-              :class="[
-                order.status === status 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-2' 
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-center whitespace-nowrap'
-              ]"
-            >
-              {{ status }}
-            </button>
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl">
+          <div class="flex items-center justify-between gap-4">
+            <!-- Status Toggles -->
+            <div class="flex gap-2 flex-1">
+              <button 
+                v-for="status in statusOptions" 
+                :key="status"
+                @click="updateStatus(order.id, status)"
+                :class="[
+                  order.status === status 
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-2' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
+                  'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-center whitespace-nowrap'
+                ]"
+              >
+                {{ status }}
+              </button>
+            </div>
+
+            <!-- Terminal Actions -->
+            <div class="flex gap-2 border-l border-slate-200 pl-4">
+              <button 
+                @click="updateStatus(order.id, 'Entregue')"
+                class="p-2 rounded-lg bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:border-green-300 transition-colors"
+                title="Concluir Pedido (Entregue)"
+              >
+                <CheckIcon class="h-5 w-5" />
+              </button>
+              <button 
+                @click="updateStatus(order.id, 'Cancelado')"
+                class="p-2 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 transition-colors"
+                title="Cancelar Pedido"
+              >
+                <XMarkIcon class="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
