@@ -119,3 +119,25 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
         references: [orders.id],
     }),
 }));
+
+export const orderRequests = pgTable('order_requests', {
+    id: serial('id').primaryKey(),
+    orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id),
+    requestType: text('request_type').notNull(), // 'cancellation' | 'edition'
+    status: text('status').default('pending').notNull(), // 'pending' | 'approved' | 'rejected'
+    details: text('details'),
+    webhookUrl: text('webhook_url'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const orderRequestsRelations = relations(orderRequests, ({ one }) => ({
+    order: one(orders, {
+        fields: [orderRequests.orderId],
+        references: [orders.id],
+    }),
+    user: one(users, {
+        fields: [orderRequests.userId],
+        references: [users.id],
+    }),
+}));

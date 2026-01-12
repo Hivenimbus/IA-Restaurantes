@@ -13,13 +13,15 @@ import {
   XMarkIcon,
   ArchiveBoxIcon,
   MagnifyingGlassIcon,
-  PhoneIcon
+  PhoneIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
 const router = useRouter()
 
 const orders = ref<any[]>([])
+const requests = ref<any[]>([])
 const loading = ref(true)
 const activeTab = ref<'active' | 'history'>('active')
 const historySearchQuery = ref('')
@@ -35,8 +37,44 @@ onMounted(async () => {
     return navigateTo('/login')
   }
 
-  await fetchOrders()
+  await Promise.all([fetchOrders(), fetchRequests()])
 })
+
+const fetchRequests = async () => {
+  try {
+    const data = await $fetch('/api/requests')
+    requests.value = data as any[]
+  } catch (e) {
+    console.error('Failed to fetch requests', e)
+  }
+}
+
+const approveRequest = async (req: any) => {
+  if (!confirm('Aprovar esta solicitação?')) return
+  try {
+    await $fetch(`/api/requests/${req.id}`, {
+      method: 'PUT',
+      body: { status: 'approved' }
+    })
+    await fetchRequests()
+    await fetchOrders() // Update orders as status might change
+  } catch (e) {
+    alert('Erro ao aprovar solicitação')
+  }
+}
+
+const rejectRequest = async (req: any) => {
+  if (!confirm('Rejeitar esta solicitação?')) return
+  try {
+    await $fetch(`/api/requests/${req.id}`, {
+      method: 'PUT',
+      body: { status: 'rejected' }
+    })
+    await fetchRequests()
+  } catch (e) {
+    alert('Erro ao rejeitar solicitação')
+  }
+}
 
 const fetchOrders = async () => {
   loading.value = true
@@ -166,6 +204,30 @@ const stats = computed(() => {
           <SparklesIcon class="-ml-0.5 mr-2 h-5 w-5" />
           Simular Pedido IA
         </button>
+      </div>
+    </div>
+
+    <!-- Requests Alert Section -->
+    <div v-if="requests.length > 0" class="mb-8 space-y-4">
+      <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <ExclamationTriangleIcon class="h-5 w-5 text-amber-500" />
+        Solicitações Pendentes
+      </h2>
+      <div v-for="req in requests" :key="req.id" class="bg-amber-50 rounded-xl p-4 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="font-medium text-amber-900">
+            {{ req.requestType === 'cancellation' ? 'Solicitação de Cancelamento' : 'Solicitação de Alteração' }}
+            <span class="text-sm font-normal text-amber-700">- Pedido #{{ req.orderId }}</span>
+          </h3>
+          <p class="text-sm text-amber-800 mt-1">
+             <strong>Cliente:</strong> {{ req.order.customerName }} <br>
+             <span v-if="req.details"><strong>Detalhes:</strong> {{ req.details }}</span>
+          </p>
+        </div>
+        <div class="flex gap-2">
+           <button @click="approveRequest(req)" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">Aprovar</button>
+           <button @click="rejectRequest(req)" class="px-4 py-2 bg-red-100 text-red-700 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-200 transition">Rejeitar</button>
+        </div>
       </div>
     </div>
 
