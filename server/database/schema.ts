@@ -80,7 +80,7 @@ export const orders = pgTable('orders', {
 
 export const orderItems = pgTable('order_items', {
     id: serial('id').primaryKey(),
-    orderId: integer('order_id').notNull().references(() => orders.id),
+    orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
     menuItemId: integer('menu_item_id').references(() => menuItems.id),
     itemName: text('item_name').notNull(),
     itemPrice: decimal('item_price', { precision: 10, scale: 2 }).notNull(),
@@ -104,7 +104,7 @@ export const clients = pgTable('clients', {
     phone: text('phone').notNull(),
     address: text('address'),
     userId: text('user_id').notNull().references(() => users.id),
-    lastOrderId: integer('last_order_id').references(() => orders.id),
+    lastOrderId: integer('last_order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
