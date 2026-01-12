@@ -23,8 +23,8 @@ const form = ref({
   description: '',
   price: '',
   category: '',
-  image_url: '',
-  is_available: true
+  imageUrl: '',
+  isAvailable: true
 })
 
 const categories = ['Lanches', 'Bebidas', 'Sobremesas', 'Pratos', 'Porções', 'Outros']
@@ -69,8 +69,8 @@ const openModal = (item?: any) => {
       description: '', 
       price: '', 
       category: 'Lanches', 
-      image_url: '',
-      is_available: true
+      imageUrl: '',
+      isAvailable: true
     }
   }
   showModal.value = true
@@ -105,17 +105,17 @@ const saveItem = async () => {
 
 const toggleAvailability = async (item: any) => {
   // Optimistic update
-  const originalStatus = item.is_available
-  item.is_available = !item.is_available
+  const originalStatus = item.isAvailable
+  item.isAvailable = !item.isAvailable
   
   try {
     await $fetch(`/api/menu/${item.id}`, {
       method: 'PUT',
-      body: { ...item, is_available: item.is_available }
+      body: { ...item, isAvailable: item.isAvailable }
     })
   } catch (e) {
     // Revert on error
-    item.is_available = originalStatus
+    item.isAvailable = originalStatus
     alert('Erro ao atualizar disponibilidade.')
   }
 }
@@ -189,26 +189,26 @@ const deleteItem = async (id: string) => {
         <!-- Image placeholder or actual image -->
         <div class="aspect-h-1 aspect-w-1 w-full overflow-hidden bg-slate-200 xl:aspect-h-8 xl:aspect-w-7 h-48 relative">
           <img 
-            v-if="item.image_url && item.image_url.trim() !== ''" 
-            :src="item.image_url" 
+            v-if="item.imageUrl && item.imageUrl.trim() !== ''" 
+            :src="item.imageUrl" 
             :alt="item.name" 
             class="h-full w-full object-cover object-center group-hover:opacity-90 transition-opacity"
-            :class="{'opacity-50 grayscale': !item.is_available}"
+            :class="{'opacity-50 grayscale': !item.isAvailable}"
           />
-          <div v-else class="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400" :class="{'opacity-50 grayscale': !item.is_available}">
+          <div v-else class="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400" :class="{'opacity-50 grayscale': !item.isAvailable}">
             <PhotoIcon class="h-12 w-12" />
           </div>
           <span class="absolute top-2 right-2 inline-flex items-center rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur-sm">
             {{ item.category }}
           </span>
-          <div v-if="!item.is_available" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
+          <div v-if="!item.isAvailable" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
             <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Indisponível</span>
           </div>
         </div>
 
         <div class="p-4 flex-1 flex flex-col">
           <div class="flex justify-between items-start">
-            <h3 class="text-lg font-bold text-slate-900 truncate flex-1" :title="item.name" :class="{'text-slate-500': !item.is_available}">
+            <h3 class="text-lg font-bold text-slate-900 truncate flex-1" :title="item.name" :class="{'text-slate-500': !item.isAvailable}">
               {{ item.name }}
             </h3>
           </div>
@@ -216,10 +216,10 @@ const deleteItem = async (id: string) => {
           <p class="mt-1 text-sm text-slate-500 line-clamp-2 flex-1">{{ item.description || 'Sem descrição.' }}</p>
           
           <div class="mt-4 flex items-center justify-between">
-            <p class="text-lg font-bold text-emerald-600" :class="{'text-emerald-600/50': !item.is_available}">R$ {{ Number(item.price).toFixed(2) }}</p>
+            <p class="text-lg font-bold text-emerald-600" :class="{'text-emerald-600/50': !item.isAvailable}">R$ {{ Number(item.price).toFixed(2) }}</p>
             <div class="flex gap-2">
-              <button @click.stop="toggleAvailability(item)" :class="[item.is_available ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-50']" class="p-1.5 rounded-md transition-colors" :title="item.is_available ? 'Marcar como Indisponível' : 'Marcar como Disponível'">
-                <div v-if="item.is_available" class="h-5 w-5 rounded-full border-2 border-current flex items-center justify-center">
+              <button @click.stop="toggleAvailability(item)" :class="[item.isAvailable ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-50']" class="p-1.5 rounded-md transition-colors" :title="item.isAvailable ? 'Marcar como Indisponível' : 'Marcar como Disponível'">
+                <div v-if="item.isAvailable" class="h-5 w-5 rounded-full border-2 border-current flex items-center justify-center">
                   <div class="h-2.5 w-2.5 rounded-full bg-current"></div>
                 </div>
                 <div v-else class="h-5 w-5 rounded-full border-2 border-slate-300"></div>
@@ -286,16 +286,16 @@ const deleteItem = async (id: string) => {
                     <div>
                       <label for="image_url" class="block text-sm font-medium leading-6 text-slate-900">URL da Imagem</label>
                       <div class="mt-1">
-                        <input type="text" name="image_url" id="image_url" v-model="form.image_url" class="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3" placeholder="https://exemplo.com/foto.jpg">
+                        <input type="text" name="imageUrl" id="imageUrl" v-model="form.imageUrl" class="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3" placeholder="https://exemplo.com/foto.jpg">
                       </div>
                     </div>
 
                     <div class="relative flex gap-x-3">
                       <div class="flex h-6 items-center">
-                        <input id="is_available" name="is_available" type="checkbox" v-model="form.is_available" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                        <input id="isAvailable" name="isAvailable" type="checkbox" v-model="form.isAvailable" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
                       </div>
                       <div class="text-sm leading-6">
-                        <label for="is_available" class="font-medium text-slate-900">Disponível para venda</label>
+                        <label for="isAvailable" class="font-medium text-slate-900">Disponível para venda</label>
                         <p class="text-slate-500">Se desmarcado, este item não aparecerá para os clientes.</p>
                       </div>
                     </div>

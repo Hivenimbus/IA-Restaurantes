@@ -97,3 +97,26 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
         references: [orders.id],
     }),
 }));
+
+export const clients = pgTable('clients', {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    phone: text('phone').notNull(),
+    address: text('address'),
+    imageUrl: text('image_url'),
+    userId: text('user_id').notNull().references(() => users.id),
+    lastOrderId: integer('last_order_id').references(() => orders.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const clientsRelations = relations(clients, ({ one, many }) => ({
+    user: one(users, {
+        fields: [clients.userId],
+        references: [users.id],
+    }),
+    lastOrder: one(orders, {
+        fields: [clients.lastOrderId],
+        references: [orders.id],
+    }),
+}));

@@ -2,7 +2,8 @@
 import { 
   HomeIcon, 
   ClipboardDocumentListIcon, 
-  ArrowRightOnRectangleIcon 
+  ArrowRightOnRectangleIcon,
+  UserGroupIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout } = useAuth()
@@ -11,6 +12,7 @@ const route = useRoute()
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Cardápio', href: '/menu', icon: ClipboardDocumentListIcon },
+  { name: 'Clientes', href: '/clients', icon: UserGroupIcon },
 ]
 
 const handleLogout = async () => {

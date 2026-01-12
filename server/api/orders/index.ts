@@ -1,8 +1,8 @@
 import { defineEventHandler, createError, readBody } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
-import { orders, orderItems } from '~~/server/database/schema'
-import { eq, desc } from 'drizzle-orm'
+import { orders, orderItems, clients } from '~~/server/database/schema'
+import { eq, desc, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({
@@ -33,10 +33,10 @@ export default defineEventHandler(async (event) => {
     const [newOrder] = await db
       .insert(orders)
       .values({
-        customerName: body.customer_name,
-        customerPhone: body.customer_phone,
+        customerName: body.customerName,
+        customerPhone: body.customerPhone,
         address: body.address,
-        paymentMethod: body.payment_method,
+        paymentMethod: body.paymentMethod,
         status: body.status || 'Aguardando',
         total: body.total,
         observations: body.observations,
@@ -44,13 +44,39 @@ export default defineEventHandler(async (event) => {
       })
       .returning()
 
-    // 2. Create Order Items
+    // 2. Upsert Client (only if phone is provided)
+    if (body.customerPhone) {
+      const existingClient = await db.query.clients.findFirst({
+        where: and(eq(clients.phone, body.customerPhone), eq(clients.userId, user.id))
+      })
+
+      if (existingClient) {
+        await db.update(clients)
+          .set({
+            name: body.customerName, // Update name just in case
+            address: body.address || existingClient.address,
+            lastOrderId: newOrder.id,
+            updatedAt: new Date()
+          })
+          .where(eq(clients.id, existingClient.id))
+      } else {
+        await db.insert(clients).values({
+          name: body.customerName,
+          phone: body.customerPhone,
+          address: body.address,
+          userId: user.id,
+          lastOrderId: newOrder.id
+        })
+      }
+    }
+
+    // 3. Create Order Items
     if (items && items.length > 0) {
       const dbOrderItems = items.map((item: any) => ({
         orderId: newOrder.id,
-        menuItemId: item.menu_item_id,
-        itemName: item.item_name,
-        itemPrice: item.item_price,
+        menuItemId: item.menuItemId,
+        itemName: item.itemName,
+        itemPrice: item.itemPrice,
         quantity: item.quantity
       }))
 
