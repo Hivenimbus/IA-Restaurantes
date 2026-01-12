@@ -59,7 +59,7 @@ const historyOrders = computed(() => {
   
   if (historySearchQuery.value) {
     const query = historySearchQuery.value.toLowerCase()
-    list = list.filter(o => o.customer_name?.toLowerCase().includes(query))
+    list = list.filter(o => o.customerName?.toLowerCase().includes(query))
   }
   
   return list
@@ -79,7 +79,7 @@ const updateStatus = async (orderId: number, newStatus: string) => {
     // We don't remove from the main list, just let the computed properties handle visibility
     // But since the status changes, it will move from active to history automatically
     order.status = newStatus
-    order.completed_at = new Date().toISOString()
+    order.completedAt = new Date().toISOString()
   } else {
     order.status = newStatus
   }
@@ -99,18 +99,18 @@ const updateStatus = async (orderId: number, newStatus: string) => {
 const simulateOrder = async () => {
   try {
     const mockOrder = {
-      customer_name: `Cliente Teste ${Math.floor(Math.random() * 100)}`,
-      customer_phone: '11999999999',
+      customerName: `Cliente Teste ${Math.floor(Math.random() * 100)}`,
+      customerPhone: '11999999999',
       address: 'Rua Exemplo, 123',
-      payment_method: Math.random() > 0.5 ? 'PIX' : 'Cartão',
+      paymentMethod: Math.random() > 0.5 ? 'PIX' : 'Cartão',
       total: (Math.random() * 100 + 20).toFixed(2),
       status: 'Aguardando',
       observations: Math.random() > 0.7 ? 'Sem cebola' : '',
       items: [
         {
-          menu_item_id: null,
-          item_name: 'Item Simulado ' + Math.floor(Math.random() * 5),
-          item_price: 25.00,
+          menuItemId: null,
+          itemName: 'Item Simulado ' + Math.floor(Math.random() * 5),
+          itemPrice: 25.00,
           quantity: 1
         }
       ]
@@ -139,7 +139,7 @@ const getStatusStyles = (status: string) => {
 
 const formatItems = (items: any[]) => {
   if (!items || items.length === 0) return 'Sem itens'
-  return items.map(i => `${i.quantity}x ${i.item_name}`).join(', ')
+  return items.map(i => `${i.quantity}x ${i.itemName}`).join(', ')
 }
 
 const stats = computed(() => {
@@ -265,15 +265,15 @@ const stats = computed(() => {
             <div class="flex items-center gap-2 mb-1">
               <span class="text-sm font-bold text-slate-900">#{{ order.id }}</span>
               <span class="text-xs text-slate-400">•</span>
-              <span class="text-sm text-slate-500">{{ new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+              <span class="text-sm">{{ new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
             </div>
             <div class="flex items-center gap-1.5 text-slate-700">
               <UserIcon class="h-4 w-4 text-slate-400" />
-              <span class="text-sm font-medium">{{ order.customer_name }}</span>
+              <span class="text-sm font-medium">{{ order.customerName }}</span>
             </div>
-            <div v-if="order.customer_phone" class="flex items-center gap-1.5 text-slate-700 mt-1">
+            <div v-if="order.customerPhone" class="flex items-center gap-1.5 text-slate-700 mt-1">
               <PhoneIcon class="h-4 w-4 text-slate-400" />
-              <span class="text-sm">{{ order.customer_phone }}</span>
+              <span class="text-sm">{{ order.customerPhone }}</span>
             </div>
           </div>
           <span :class="[getStatusStyles(order.status), 'px-2.5 py-1 rounded-full text-xs font-semibold border']">
@@ -286,7 +286,7 @@ const stats = computed(() => {
           <!-- Items -->
           <div>
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Itens do Pedido</p>
-            <p class="text-sm text-slate-800 leading-relaxed">{{ formatItems(order.order_items) }}</p>
+            <p class="text-sm text-slate-800 leading-relaxed">{{ formatItems(order.orderItems) }}</p>
           </div>
 
           <!-- Observations -->
@@ -306,7 +306,7 @@ const stats = computed(() => {
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Pagamento</p>
               <div class="flex items-center gap-1.5 text-slate-700">
                 <BanknotesIcon class="h-4 w-4 text-slate-400" />
-                <span class="text-sm">{{ order.payment_method }}</span>
+                <span class="text-sm">{{ order.paymentMethod }}</span>
               </div>
             </div>
             <div>
@@ -370,7 +370,7 @@ const stats = computed(() => {
            <p class="text-xs text-slate-500 text-center">
              {{ order.status === 'Cancelado' ? 'Cancelado' : 'Finalizado' }} em 
              <span class="font-medium">
-               {{ order.completed_at ? new Date(order.completed_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A' }}
+               {{ order.completedAt ? new Date(order.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A' }}
              </span>
            </p>
         </div>
