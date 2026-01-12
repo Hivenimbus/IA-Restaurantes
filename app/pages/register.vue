@@ -24,7 +24,7 @@ const handleRegister = async () => {
     await register(email.value, password.value, establishmentName.value)
     router.push('/dashboard')
   } catch (e: any) {
-    errorMsg.value = e.data?.statusMessage || e.message
+    errorMsg.value = e.body?.message || e.message || 'Erro ao criar conta.'
   } finally {
     loading.value = false
   }

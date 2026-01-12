@@ -1,28 +1,47 @@
+import { authClient } from "../lib/auth-client"
+
 export const useAuth = () => {
-  const user = useState('user', () => null)
   const router = useRouter()
 
-  const login = async (email, password) => {
+  const { data: sessionData, refresh } = useAsyncData('user-session', async () => {
     try {
-      const { user: userData } = await $fetch('/api/auth/login', {
-        method: 'POST',
-        body: { email, password }
+      const { data } = await authClient.getSession({
+        fetchOptions: {
+          headers: useRequestHeaders(['cookie'])
+        }
       })
-      user.value = userData
-      return userData
+      return data
+    } catch (e) {
+      return null
+    }
+  })
+
+  const user = computed(() => sessionData.value?.user ?? null)
+  const session = computed(() => sessionData.value?.session ?? null)
+
+  const login = async (email: string, password: string) => {
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email,
+        password
+      })
+      if (error) throw error
+      await refresh()
+      return data
     } catch (e) {
       throw e
     }
   }
 
-  const register = async (email, password, establishmentName) => {
+  const register = async (email: string, password: string, establishmentName: string) => {
     try {
-      await $fetch('/api/auth/register', {
-        method: 'POST',
-        body: { email, password, establishment_name: establishmentName }
+      const { data, error } = await authClient.signUp.email({
+        email,
+        password,
+        name: establishmentName // Mapping establishment name to user name
       })
-      // Auto login after register
-      await login(email, password)
+      if (error) throw error
+      await refresh()
     } catch (e) {
       throw e
     }
@@ -30,8 +49,8 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
-      await $fetch('/api/auth/logout', { method: 'POST' })
-      user.value = null
+      await authClient.signOut()
+      await refresh()
       router.push('/login')
     } catch (e) {
       console.error(e)
@@ -39,20 +58,15 @@ export const useAuth = () => {
   }
 
   const fetchUser = async () => {
-    try {
-      const { user: userData } = await $fetch('/api/auth/me')
-      user.value = userData
-    } catch (e) {
-      user.value = null
-    }
+    await refresh()
   }
 
   return {
     user,
+    session,
     login,
     register,
     logout,
     fetchUser
   }
 }
-

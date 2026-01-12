@@ -1,48 +1,39 @@
-import { defineEventHandler, getCookie, createError, readBody } from 'h3'
-import jwt from 'jsonwebtoken'
-import { serverSupabaseClient } from '#supabase/server'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-me'
+import { defineEventHandler, createError, readBody } from 'h3'
+import { auth } from '~~/server/utils/auth'
+import { db } from '~~/server/utils/db'
+import { orders } from '~~/server/database/schema'
+import { eq, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'auth_token')
-  if (!token) {
+  const session = await auth.api.getSession({
+    headers: event.headers
+  })
+
+  if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-
-  let user
-  try {
-    user = jwt.verify(token, JWT_SECRET)
-  } catch (e) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid Token' })
-  }
-
-  const id = event.context.params?.id
-  const client = await serverSupabaseClient(event)
+  const user = session.user
+  const id = Number(event.context.params?.id)
 
   if (event.method === 'PUT') {
     const body = await readBody(event)
     const { status } = body
 
     const updateData: any = { status }
-    
+
     // If status is terminal (Entregue/Cancelado), set completed_at
     if (status === 'Entregue' || status === 'Cancelado') {
-      updateData.completed_at = new Date().toISOString()
+      updateData.completedAt = new Date()
     } else {
-      // If moving back to active (optional logic, but safe), clear it
-      updateData.completed_at = null
+      updateData.completedAt = null
     }
 
-    const { data, error } = await client
-      .from('orders')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', user.id) // Security check
-      .select()
-      .single()
+    const [updatedOrder] = await db
+      .update(orders)
+      .set(updateData)
+      .where(and(eq(orders.id, id), eq(orders.userId, user.id)))
+      .returning()
 
-    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-    return data
+    return updatedOrder
   }
 })

@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, integer, serial, decimal } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
 export const users = pgTable('users', {
     id: text('id').primaryKey(),
@@ -45,7 +46,7 @@ export const verifications = pgTable('verifications', {
     id: text('id').primaryKey(),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
+    expires_at: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').notNull(),
 });
@@ -58,6 +59,7 @@ export const menuItems = pgTable('menu_items', {
     category: text('category').notNull(),
     imageUrl: text('image_url'),
     isAvailable: boolean('is_available').default(true).notNull(),
+    userId: text('user_id').notNull().references(() => users.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -68,9 +70,10 @@ export const orders = pgTable('orders', {
     customerPhone: text('customer_phone'),
     address: text('address'),
     paymentMethod: text('payment_method'),
-    status: text('status').default('Aguardando').notNull(), // Aguardando, Em preparação, Enviado, Entregue, Cancelado
+    status: text('status').default('Aguardando').notNull(),
     total: decimal('total', { precision: 10, scale: 2 }).notNull(),
     observations: text('observations'),
+    userId: text('user_id').notNull().references(() => users.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     completedAt: timestamp('completed_at'),
 });
@@ -78,8 +81,19 @@ export const orders = pgTable('orders', {
 export const orderItems = pgTable('order_items', {
     id: serial('id').primaryKey(),
     orderId: integer('order_id').notNull().references(() => orders.id),
-    menuItemId: integer('menu_item_id').references(() => menuItems.id), // Nullable in case menu item is deleted? Or strict? Better to keep it nullable or restrict delete.
-    itemName: text('item_name').notNull(), // Snapshot of name in case it changes
-    itemPrice: decimal('item_price', { precision: 10, scale: 2 }).notNull(), // Snapshot of price
+    menuItemId: integer('menu_item_id').references(() => menuItems.id),
+    itemName: text('item_name').notNull(),
+    itemPrice: decimal('item_price', { precision: 10, scale: 2 }).notNull(),
     quantity: integer('quantity').notNull().default(1),
 });
+
+export const ordersRelations = relations(orders, ({ many }) => ({
+    orderItems: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+    order: one(orders, {
+        fields: [orderItems.orderId],
+        references: [orders.id],
+    }),
+}));

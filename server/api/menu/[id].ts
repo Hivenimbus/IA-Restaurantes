@@ -1,48 +1,36 @@
-import { defineEventHandler, getCookie, createError } from 'h3'
-import jwt from 'jsonwebtoken'
-import { serverSupabaseClient } from '#supabase/server'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-me'
+import { defineEventHandler, createError, readBody } from 'h3'
+import { auth } from '~~/server/utils/auth'
+import { db } from '~~/server/utils/db'
+import { menuItems } from '~~/server/database/schema'
+import { eq, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'auth_token')
-  if (!token) {
+  const session = await auth.api.getSession({
+    headers: event.headers
+  })
+
+  if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-
-  let user
-  try {
-    user = jwt.verify(token, JWT_SECRET)
-  } catch (e) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid Token' })
-  }
-
-  const id = event.context.params?.id
-  const client = await serverSupabaseClient(event)
+  const user = session.user
+  const id = Number(event.context.params?.id)
 
   if (event.method === 'PUT') {
     const body = await readBody(event)
-    const { data, error } = await client
-      .from('menu_items')
-      .update(body)
-      .eq('id', id)
-      .eq('user_id', user.id) // Ensure user owns the item
-      .select()
-      .single()
-    
-    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-    return data
+    const [updatedItem] = await db
+      .update(menuItems)
+      .set(body)
+      .where(and(eq(menuItems.id, id), eq(menuItems.userId, user.id)))
+      .returning()
+
+    return updatedItem
   }
 
   if (event.method === 'DELETE') {
-    const { error } = await client
-      .from('menu_items')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id) // Ensure user owns the item
-    
-    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+    await db
+      .delete(menuItems)
+      .where(and(eq(menuItems.id, id), eq(menuItems.userId, user.id)))
+
     return { success: true }
   }
 })
-

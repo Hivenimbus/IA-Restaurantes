@@ -22,7 +22,7 @@ const handleLogin = async () => {
     await login(email.value, password.value)
     router.push('/dashboard')
   } catch (e: any) {
-    errorMsg.value = e.data?.statusMessage || e.message
+    errorMsg.value = e.body?.message || e.message || 'Erro ao realizar login.'
   } finally {
     loading.value = false
   }

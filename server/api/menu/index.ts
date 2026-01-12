@@ -1,45 +1,36 @@
-import { defineEventHandler, getCookie, createError } from 'h3'
-import jwt from 'jsonwebtoken'
-import { serverSupabaseClient } from '#supabase/server'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-me'
+import { defineEventHandler, createError, readBody } from 'h3'
+import { auth } from '~~/server/utils/auth'
+import { db } from '~~/server/utils/db'
+import { menuItems } from '~~/server/database/schema'
+import { eq, desc } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'auth_token')
-  if (!token) {
+  const session = await auth.api.getSession({
+    headers: event.headers
+  })
+
+  if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-
-  let user
-  try {
-    user = jwt.verify(token, JWT_SECRET)
-  } catch (e) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid Token' })
-  }
-
-  const client = await serverSupabaseClient(event)
+  const user = session.user
 
   if (event.method === 'GET') {
-    const { data, error } = await client
-      .from('menu_items')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    
-    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+    const data = await db
+      .select()
+      .from(menuItems)
+      .where(eq(menuItems.userId, user.id))
+      .orderBy(desc(menuItems.createdAt))
+
     return data
   }
 
   if (event.method === 'POST') {
     const body = await readBody(event)
-    const { data, error } = await client
-      .from('menu_items')
-      .insert({ ...body, user_id: user.id })
-      .select()
-      .single()
-    
-    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-    return data
+    const [newItem] = await db
+      .insert(menuItems)
+      .values({ ...body, userId: user.id })
+      .returning()
+
+    return newItem
   }
 })
-
