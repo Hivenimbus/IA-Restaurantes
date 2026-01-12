@@ -103,7 +103,6 @@ export const clients = pgTable('clients', {
     name: text('name').notNull(),
     phone: text('phone').notNull(),
     address: text('address'),
-    imageUrl: text('image_url'),
     userId: text('user_id').notNull().references(() => users.id),
     lastOrderId: integer('last_order_id').references(() => orders.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),

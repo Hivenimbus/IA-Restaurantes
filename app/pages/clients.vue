@@ -92,9 +92,6 @@ const formatItems = (items: any[]) => {
     <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="client in filteredClients" :key="client.id" class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow duration-300 p-6">
         <div class="flex items-center space-x-3 mb-4">
-          <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-            {{ client.name.charAt(0).toUpperCase() }}
-          </div>
           <div>
             <h3 class="text-sm font-medium text-slate-900">{{ client.name }}</h3>
             <p class="text-xs text-slate-500">Cliente desde {{ new Date(client.createdAt).toLocaleDateString() }}</p>
