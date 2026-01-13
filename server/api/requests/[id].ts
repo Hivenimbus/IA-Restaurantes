@@ -45,8 +45,13 @@ export default defineEventHandler(async (event) => {
         // Business Logic: If Approved
         let message = ''
 
+        // Check request type robustly
+        const type = request.requestType.toLowerCase()
+        const isCancellation = type.includes('cancel')
+        const isEdition = type.includes('edi') || type.includes('alt')
+
         if (status === 'approved') {
-            if (request.requestType === 'cancellation') {
+            if (isCancellation) {
                 // Automatically cancel the order
                 await db
                     .update(orders)
@@ -54,13 +59,13 @@ export default defineEventHandler(async (event) => {
                     .where(eq(orders.id, request.orderId))
 
                 message = 'Cancelamento aceito'
-            } else if (request.requestType === 'edition') {
+            } else if (isEdition) {
                 message = 'Edição aceita, utilize sua tool para editar os itens do pedido conforme o cliente solicitou e o informe'
             }
         } else if (status === 'rejected') {
-            if (request.requestType === 'cancellation') {
+            if (isCancellation) {
                 message = 'Cancelamento recusado'
-            } else if (request.requestType === 'edition') {
+            } else if (isEdition) {
                 message = 'Edição recusada'
             }
         }

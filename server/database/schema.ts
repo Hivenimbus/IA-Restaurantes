@@ -141,3 +141,18 @@ export const orderRequestsRelations = relations(orderRequests, ({ one }) => ({
         references: [users.id],
     }),
 }));
+
+export const menuSettings = pgTable('menu_settings', {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id),
+    menuLink: text('menu_link'),
+    menuFileUrl: text('menu_file_url'),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const menuSettingsRelations = relations(menuSettings, ({ one }) => ({
+    user: one(users, {
+        fields: [menuSettings.userId],
+        references: [users.id],
+    }),
+}));

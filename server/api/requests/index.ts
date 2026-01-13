@@ -43,10 +43,16 @@ export default defineEventHandler(async (event) => {
             })
         }
 
+        // Normalize requestType
+        const cleanType = body.requestType.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase()
+        let normalizedType = cleanType
+        if (cleanType.includes('cancelamento')) normalizedType = 'cancellation'
+        if (cleanType.includes('edicao')) normalizedType = 'edition'
+
         const newRequest = await db.insert(orderRequests).values({
             userId: user.id,
             orderId: body.orderId,
-            requestType: body.requestType,
+            requestType: normalizedType,
             details: body.details,
             webhookUrl: body.webhookUrl,
             status: 'pending' // Default status

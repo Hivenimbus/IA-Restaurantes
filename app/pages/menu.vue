@@ -6,17 +6,22 @@ import {
   PhotoIcon,
   TagIcon,
   CurrencyDollarIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  LinkIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, fetchUser } = useAuth()
 const menuItems = ref([])
 const loading = ref(true)
 const showModal = ref(false)
+const showSettingsModal = ref(false) // New Modal
 const saving = ref(false)
+const savingSettings = ref(false) // New loading state
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
 const searchQuery = ref('')
+const selectedFile = ref<File | null>(null) // File handling
 
 const form = ref({
   name: '',
@@ -27,13 +32,30 @@ const form = ref({
   isAvailable: true
 })
 
+const settingsForm = ref({
+  menuLink: '',
+  menuFileUrl: ''
+})
+
 const categories = ['Lanches', 'Bebidas', 'Sobremesas', 'Pratos', 'Porções', 'Outros']
 
 onMounted(async () => {
   if (!user.value) await fetchUser()
   if (!user.value) return navigateTo('/login')
-  await fetchMenuItems()
+  await Promise.all([fetchMenuItems(), fetchSettings()])
 })
+
+const fetchSettings = async () => {
+  try {
+    const data = await $fetch('/api/menu/settings')
+    settingsForm.value = {
+      menuLink: data.menuLink || '',
+      menuFileUrl: data.menuFileUrl || ''
+    }
+  } catch (e) {
+    console.error('Failed to fetch settings', e)
+  }
+}
 
 const fetchMenuItems = async () => {
   try {
@@ -103,6 +125,50 @@ const saveItem = async () => {
   }
 }
 
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length) {
+    selectedFile.value = target.files[0]
+  }
+}
+
+const saveSettings = async () => {
+  savingSettings.value = true
+  try {
+    let uploadedUrl = settingsForm.value.menuFileUrl
+
+    if (selectedFile.value) {
+      const formData = new FormData()
+      formData.append('file', selectedFile.value)
+      
+      const uploadRes = await $fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+      uploadedUrl = uploadRes.url
+    }
+
+    await $fetch('/api/menu/settings', {
+      method: 'POST',
+      body: {
+        menuLink: settingsForm.value.menuLink,
+        menuFileUrl: uploadedUrl
+      }
+    })
+    
+    // Refresh to ensure sync
+    await fetchSettings() 
+    showSettingsModal.value = false
+    selectedFile.value = null // Reset
+    alert('Configurações salvas com sucesso!')
+  } catch (e) {
+    console.error(e)
+    alert('Erro ao salvar configurações.')
+  } finally {
+    savingSettings.value = false
+  }
+}
+
 const toggleAvailability = async (item: any) => {
   // Optimistic update
   const originalStatus = item.isAvailable
@@ -139,8 +205,12 @@ const deleteItem = async (id: string) => {
         <h1 class="text-2xl font-bold text-slate-900">Cardápio</h1>
         <p class="mt-2 text-sm text-slate-600">Gerencie os produtos disponíveis para venda.</p>
       </div>
-      <div class="mt-4 sm:mt-0">
-        <button @click="openModal()" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors">
+      <div class="mt-4 sm:mt-0 flex gap-3">
+         <button @click="showSettingsModal = true" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
+          <LinkIcon class="-ml-0.5 mr-2 h-5 w-5 text-slate-500" />
+          Mídia / Link
+        </button>
+        <button @click="openModal()" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
           <PlusIcon class="-ml-0.5 mr-2 h-5 w-5" />
           Novo Item
         </button>
@@ -236,20 +306,19 @@ const deleteItem = async (id: string) => {
       </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Modal (New/Edit Item) -->
     <div v-if="showModal" class="relative z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"></div>
-
       <div class="fixed inset-0 z-10 overflow-y-auto">
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
           <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-            <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+             <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
               <div class="sm:flex sm:items-start">
                 <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
                   <h3 class="text-xl font-semibold leading-6 text-slate-900" id="modal-title">
                     {{ isEditing ? 'Editar Item' : 'Novo Item' }}
                   </h3>
-                  <div class="mt-6 space-y-4">
+                   <div class="mt-6 space-y-4">
                     <div>
                       <label for="name" class="block text-sm font-medium leading-6 text-slate-900">Nome</label>
                       <div class="mt-1">
@@ -309,6 +378,92 @@ const deleteItem = async (id: string) => {
               </button>
               <button type="button" @click="closeModal" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto">Cancelar</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal (Settings: Link/Media) -->
+    <div v-if="showSettingsModal" class="relative z-50">
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"></div>
+      <div class="fixed inset-0 z-10 overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+             <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+               
+               <!-- Modal Header -->
+               <div class="flex items-center gap-3 mb-6">
+                 <div class="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                    <LinkIcon class="h-6 w-6" />
+                 </div>
+                 <div>
+                    <h3 class="text-xl font-semibold leading-6 text-slate-900">Mídia e Links</h3>
+                    <p class="text-sm text-slate-500">Adicione links ou arquivos do seu cardápio digital.</p>
+                 </div>
+               </div>
+               
+               <div class="space-y-6">
+                 <!-- Link Input -->
+                 <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-2">Link Externo</label>
+                    <div class="relative rounded-md shadow-sm">
+                      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <LinkIcon class="h-5 w-5 text-slate-400" />
+                      </div>
+                      <input 
+                        type="url" 
+                        v-model="settingsForm.menuLink" 
+                        class="block w-full rounded-md border-0 py-2 pl-10 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                        placeholder="https://meucardapio.com.br"
+                      >
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">Ex: Link do Instagram, Site ou Notion.</p>
+                 </div>
+
+                 <div class="relative">
+                    <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                      <div class="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div class="relative flex justify-center">
+                      <span class="bg-white px-2 text-sm text-slate-500">OU</span>
+                    </div>
+                 </div>
+
+                 <!-- File Upload -->
+                 <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-2">Arquivo do Cardápio (PDF ou Imagem)</label>
+                    
+                    <div class="flex items-center justify-center w-full">
+                        <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <ArrowUpTrayIcon class="w-8 h-8 mb-2 text-slate-400" />
+                                <p class="mb-1 text-sm text-slate-500"><span class="font-semibold">Clique para enviar</span></p>
+                                <p class="text-xs text-slate-500">PDF, PNG ou JPG</p>
+                                <p v-if="selectedFile" class="mt-2 text-xs font-semibold text-emerald-600">Selecionado: {{ selectedFile.name }}</p>
+                            </div>
+                            <input id="dropzone-file" type="file" class="hidden" @change="handleFileChange" accept="image/*,.pdf" />
+                        </label>
+                    </div>
+
+                    <div v-if="settingsForm.menuFileUrl" class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="h-8 w-8 bg-indigo-100 rounded flex items-center justify-center text-indigo-700">
+                          <TagIcon class="h-4 w-4" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-slate-900 truncate">Arquivo Atual</p>
+                          <a :href="settingsForm.menuFileUrl" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-500 truncate block">{{ settingsForm.menuFileUrl }}</a>
+                        </div>
+                    </div>
+                 </div>
+               </div>
+
+             </div>
+             <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+               <button type="button" @click="saveSettings" :disabled="savingSettings" class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto disabled:opacity-50">
+                 {{ savingSettings ? 'Salvando...' : 'Salvar Configurações' }}
+               </button>
+               <button type="button" @click="showSettingsModal = false" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto">Cancelar</button>
+             </div>
           </div>
         </div>
       </div>
