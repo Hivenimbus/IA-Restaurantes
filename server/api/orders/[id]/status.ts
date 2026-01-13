@@ -35,29 +35,35 @@ export default defineEventHandler(async (event) => {
       .returning()
 
     // Webhook Notification Logic
-    const WEBHOOK_URL = 'https://n8n.hivebot.cloud/webhook/9b49aa97-0409-45bd-aa80-fc6ffb32608c'
+    const WEBHOOK_URL = 'https://n8n.hivebot.cloud/webhook/006b3cae-3828-40ca-9cfe-0c1334995e27'
     let message = ''
 
     if (status === 'Em preparação') {
       message = 'O pedido do cliente está em separação, informe a ele em uma mensagem curta'
     } else if (status === 'Enviado') {
       message = 'O pedido do cliente foi enviado, informe a ele em uma mensagem curta'
+    } else if (status === 'Entregue') {
+      message = 'O pedido do cliente foi entregue, agradeça a preferência em uma mensagem curta'
+    } else if (status === 'Cancelado') {
+      message = 'O pedido do cliente foi cancelado, informe a ele em uma mensagem curta'
+    } else {
+      message = `O status do pedido do cliente mudou para "${status}", informe a ele em uma mensagem curta`
     }
 
-    if (message) {
-      try {
-        await $fetch(WEBHOOK_URL, {
-          method: 'POST',
-          body: {
-            message,
-            orderId: updatedOrder.id,
-            customerName: updatedOrder.customerName,
-            customerPhone: updatedOrder.customerPhone
-          }
-        })
-      } catch (e) {
-        console.error('Failed to trigger order status webhook', e)
-      }
+    // Always send notification for any status change
+    try {
+      await $fetch(WEBHOOK_URL, {
+        method: 'POST',
+        body: {
+          message,
+          orderId: updatedOrder.id,
+          customerName: updatedOrder.customerName,
+          customerPhone: updatedOrder.customerPhone, // Sending customer number as requested
+          newStatus: status
+        }
+      })
+    } catch (e) {
+      console.error('Failed to trigger order status webhook', e)
     }
 
     return updatedOrder
