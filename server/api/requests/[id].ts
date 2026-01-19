@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
 
                 message = 'Cancelamento aceito'
             } else if (isEdition) {
-                message = 'Edição aceita, utilize sua tool para editar os itens do pedido conforme o cliente solicitou e o informe'
+                message = 'Edição aceita, utilize as tools necessárias para editar imediatamente os itens do pedido como o cliente solicitou anteriormente. Após isso informe ele'
             }
         } else if (status === 'rejected') {
             if (isCancellation) {
@@ -70,12 +70,23 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // Trigger Webhook if URL exists
-        if (request.webhookUrl && message) {
+        // Fetch order to get customer phone
+        const [order] = await db.select().from(orders).where(eq(orders.id, request.orderId)).limit(1);
+
+        // Trigger Webhook
+        if (message && order?.customerPhone) {
             try {
-                await $fetch(request.webhookUrl, {
+                await $fetch('https://n8n.hivebot.cloud/webhook/solicitacoes', {
                     method: 'POST',
-                    body: { message }
+                    headers: {
+                        'client_number': order.customerPhone
+                    },
+                    body: {
+                        message,
+                        status,
+                        requestId: request.id,
+                        orderId: request.orderId
+                    }
                 })
             } catch (e) {
                 console.error('Failed to trigger webhook', e)
