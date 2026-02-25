@@ -26,9 +26,11 @@ export default defineEventHandler(async (event) => {
 
   if (event.method === 'POST') {
     const body = await readBody(event)
+    const { id: _id, createdAt, updatedAt, userId, ...insertData } = body
+
     const [newItem] = await db
       .insert(menuItems)
-      .values({ ...body, userId: user.id })
+      .values({ ...insertData, userId: user.id })
       .returning()
 
     return newItem

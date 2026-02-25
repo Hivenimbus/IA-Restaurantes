@@ -17,9 +17,11 @@ export default defineEventHandler(async (event) => {
 
   if (event.method === 'PUT') {
     const body = await readBody(event)
+    const { id: _id, createdAt, updatedAt, userId, ...updateData } = body
+
     const [updatedItem] = await db
       .update(menuItems)
-      .set(body)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(menuItems.id, id), eq(menuItems.userId, user.id)))
       .returning()
 
