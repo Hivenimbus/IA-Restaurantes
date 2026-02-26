@@ -107,6 +107,7 @@ export const clients = pgTable('clients', {
     address: text('address'),
     userId: text('user_id').notNull().references(() => users.id),
     lastOrderId: integer('last_order_id').references(() => orders.id, { onDelete: 'set null' }),
+    cashback: decimal('cashback', { precision: 10, scale: 2 }).default('0').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

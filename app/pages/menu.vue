@@ -8,7 +8,8 @@ import {
   CurrencyDollarIcon,
   MagnifyingGlassIcon,
   LinkIcon,
-  ArrowUpTrayIcon
+  ArrowUpTrayIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, fetchUser } = useAuth()
