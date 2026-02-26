@@ -19,6 +19,7 @@ const showModal = ref(false)
 const showSettingsModal = ref(false) // New Modal
 const saving = ref(false)
 const savingSettings = ref(false) // New loading state
+const removingFile = ref(false) // Handle file removal state
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
 const searchQuery = ref('')
@@ -225,6 +226,59 @@ const saveSettings = async () => {
     alert('Erro ao salvar configurações.')
   } finally {
     savingSettings.value = false
+  }
+}
+
+const removeFile = async () => {
+  if (!settingsForm.value.menuFileUrl) return
+  if (!confirm('Tem certeza que deseja remover o arquivo atual? Isso não poderá ser desfeito.')) return
+
+  removingFile.value = true
+  try {
+    // Extract filename from URL (assumes basic formatting like http://bucket.com/filename)
+    const urlParts = settingsForm.value.menuFileUrl.split('/')
+    let filename = urlParts[urlParts.length - 1]
+
+    // Specifically for local minio format: http://endpoint:port/bucket_name/filename
+    // Or AWS: https://bucket.s3.region.amazonaws.com/filename
+    // Either way, the URL ends with the filename.
+    
+    // Safely check if filename exists
+    if (!filename) {
+        throw new Error('Filename could not be extracted')
+    }
+
+    // Safety check if there are query parameters
+    if (filename.includes('?')) {
+        filename = filename.split('?')[0]
+    }
+
+    // Call S3 delete endpoint
+    await $fetch('/api/upload', {
+      method: 'DELETE',
+      body: { filename }
+    })
+
+    // Set local file form to empty string
+    settingsForm.value.menuFileUrl = ''
+    
+    // Save settings implicitly to remove reference from DB immediately
+    await $fetch('/api/menu/settings', {
+      method: 'POST',
+      body: {
+        menuLink: settingsForm.value.menuLink,
+        menuFileUrl: ''
+      }
+    })
+
+    // Update form to reflect
+    await fetchSettings()
+    alert('Arquivo removido com sucesso!')
+  } catch (e) {
+    console.error('Failed to remove file:', e)
+    alert('Erro ao remover o arquivo.')
+  } finally {
+    removingFile.value = false
   }
 }
 
@@ -541,14 +595,19 @@ const deleteItem = async (id: string) => {
                         </label>
                     </div>
 
-                    <div v-if="settingsForm.menuFileUrl" class="mt-3 flex items-center gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <div class="h-8 w-8 bg-indigo-100 rounded flex items-center justify-center text-indigo-700">
-                          <TagIcon class="h-4 w-4" />
+                    <div v-if="settingsForm.menuFileUrl" class="mt-3 flex items-center justify-between gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                          <div class="h-8 w-8 bg-indigo-100 rounded flex items-center justify-center text-indigo-700 flex-shrink-0">
+                            <TagIcon class="h-4 w-4" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-slate-900 truncate">Arquivo Atual</p>
+                            <a :href="settingsForm.menuFileUrl" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-500 truncate block">{{ settingsForm.menuFileUrl }}</a>
+                          </div>
                         </div>
-                        <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium text-slate-900 truncate">Arquivo Atual</p>
-                          <a :href="settingsForm.menuFileUrl" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-500 truncate block">{{ settingsForm.menuFileUrl }}</a>
-                        </div>
+                        <button @click="removeFile" :disabled="removingFile" class="ml-2 p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50" title="Remover Arquivo">
+                          <TrashIcon class="h-5 w-5" />
+                        </button>
                     </div>
                  </div>
                </div>

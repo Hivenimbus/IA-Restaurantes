@@ -6,7 +6,9 @@ import {
   PhoneIcon,
   ClockIcon,
   PencilSquareIcon,
-  TrashIcon
+  TrashIcon,
+  CurrencyDollarIcon,
+  ShoppingBagIcon
 } from '@heroicons/vue/24/outline'
 
 const { user } = useAuth()
@@ -182,6 +184,16 @@ const confirmDelete = async () => {
             <div class="flex items-center text-sm text-slate-600">
               <PhoneIcon class="h-4 w-4 mr-2 text-slate-400" />
               {{ client.phone }}
+            </div>
+            <div class="flex gap-4">
+              <div class="flex items-center text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                <CurrencyDollarIcon class="h-4 w-4 mr-1 text-emerald-500" />
+                R$ {{ Number(client.cashback || 0).toFixed(2) }} Cashback
+              </div>
+              <div class="flex items-center text-sm font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                <ShoppingBagIcon class="h-4 w-4 mr-1 text-indigo-500" />
+                {{ client.orderCount || 0 }} {{ client.orderCount === 1 ? 'Pedido' : 'Pedidos' }}
+              </div>
             </div>
             <div v-if="client.address" class="flex items-start text-sm text-slate-600">
               <MapPinIcon class="h-4 w-4 mr-2 text-slate-400 mt-0.5" />
