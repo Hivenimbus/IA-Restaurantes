@@ -28,6 +28,8 @@ const historySearchQuery = ref('')
 
 const statusOptions = ['Aguardando', 'Em preparação', 'Enviado']
 
+let refreshInterval: ReturnType<typeof setInterval>
+
 onMounted(async () => {
   if (!user.value) {
     await fetchUser()
@@ -38,6 +40,16 @@ onMounted(async () => {
   }
 
   await Promise.all([fetchOrders(), fetchRequests()])
+
+  // Start polling every 5 seconds for new orders/requests
+  refreshInterval = setInterval(() => {
+    fetchOrders(true) // background = true (no loading flash)
+    fetchRequests()
+  }, 5000)
+})
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
 })
 
 const fetchRequests = async () => {
@@ -76,15 +88,15 @@ const rejectRequest = async (req: any) => {
   }
 }
 
-const fetchOrders = async () => {
-  loading.value = true
+const fetchOrders = async (background = false) => {
+  if (!background) loading.value = true
   try {
     const data = await $fetch('/api/orders')
     orders.value = data as any[]
   } catch (e) {
     console.error('Failed to fetch orders', e)
   } finally {
-    loading.value = false
+    if (!background) loading.value = false
   }
 }
 
@@ -196,7 +208,7 @@ const stats = computed(() => {
         <!-- Stats Overview Header -->
       </div>
       <div class="flex gap-2">
-         <button @click="fetchOrders" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
+         <button @click="fetchOrders(false)" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
           <ArrowPathIcon class="-ml-0.5 mr-2 h-5 w-5" :class="{ 'animate-spin': loading }" />
           Atualizar
         </button>

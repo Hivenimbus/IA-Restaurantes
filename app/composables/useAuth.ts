@@ -7,7 +7,8 @@ export const useAuth = () => {
     try {
       const { data } = await authClient.getSession({
         fetchOptions: {
-          headers: useRequestHeaders(['cookie'])
+          headers: useRequestHeaders(['cookie']) as HeadersInit,
+          baseURL: import.meta.client ? undefined : useRequestURL().origin
         }
       })
       return data
