@@ -59,6 +59,8 @@ export const menuItems = pgTable('menu_items', {
     category: text('category').notNull(),
     imageUrl: text('image_url'),
     isAvailable: boolean('is_available').default(true).notNull(),
+    isPromotion: boolean('is_promotion').default(false).notNull(),
+    promotionalPrice: decimal('promotional_price', { precision: 10, scale: 2 }),
     userId: text('user_id').notNull().references(() => users.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

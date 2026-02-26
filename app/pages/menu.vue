@@ -12,7 +12,7 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const { user, fetchUser } = useAuth()
-const menuItems = ref([])
+const menuItems = ref<any[]>([])
 const loading = ref(true)
 const showModal = ref(false)
 const showSettingsModal = ref(false) // New Modal
@@ -29,8 +29,44 @@ const form = ref({
   price: '',
   category: '',
   imageUrl: '',
-  isAvailable: true
+  isAvailable: true,
+  isPromotion: false,
+  promotionalPrice: ''
 })
+
+const discountPercentage = ref('')
+
+const calculatePercentage = () => {
+    const price = parseFloat(String(form.value.price).replace(',', '.'))
+    const promo = parseFloat(String(form.value.promotionalPrice).replace(',', '.'))
+    if (!isNaN(price) && !isNaN(promo) && price > 0) {
+        let pct = ((price - promo) / price) * 100
+        discountPercentage.value = pct.toFixed(0)
+    } else {
+        discountPercentage.value = ''
+    }
+}
+
+const calculatePromoPrice = () => {
+    const price = parseFloat(String(form.value.price).replace(',', '.'))
+    const pct = parseFloat(String(discountPercentage.value).replace(',', '.'))
+    if (!isNaN(price) && !isNaN(pct)) {
+        let promo = price - (price * (pct / 100))
+        form.value.promotionalPrice = promo.toFixed(2)
+    } else {
+        form.value.promotionalPrice = ''
+    }
+}
+
+const onPromotionChange = () => {
+  if (!form.value.isPromotion) {
+    form.value.promotionalPrice = ''
+    discountPercentage.value = ''
+  } else {
+    calculatePercentage()
+  }
+}
+
 
 const settingsForm = ref({
   menuLink: '',
@@ -61,7 +97,7 @@ const fetchMenuItems = async () => {
   try {
     loading.value = true
     const data = await $fetch('/api/menu')
-    menuItems.value = data
+    menuItems.value = (data as any[]) || []
   } catch (e) {
     console.error('Failed to fetch menu items', e)
   } finally {
@@ -82,7 +118,18 @@ const openModal = (item?: any) => {
   if (item) {
     isEditing.value = true
     editingId.value = item.id
-    form.value = { ...item }
+    form.value = { 
+      ...item, 
+      isPromotion: item.isPromotion || false, 
+      promotionalPrice: item.promotionalPrice || '' 
+    }
+    if (form.value.isPromotion && form.value.price && form.value.promotionalPrice) {
+      const price = parseFloat(form.value.price)
+      const promo = parseFloat(form.value.promotionalPrice)
+      if (price > 0) discountPercentage.value = (((price - promo) / price) * 100).toFixed(0)
+    } else {
+      discountPercentage.value = ''
+    }
   } else {
     isEditing.value = false
     editingId.value = null
@@ -92,8 +139,11 @@ const openModal = (item?: any) => {
       price: '', 
       category: 'Lanches', 
       imageUrl: '',
-      isAvailable: true
+      isAvailable: true,
+      isPromotion: false,
+      promotionalPrice: ''
     }
+    discountPercentage.value = ''
   }
   showModal.value = true
 }
@@ -105,15 +155,23 @@ const closeModal = () => {
 const saveItem = async () => {
   saving.value = true
   try {
+    const payload = { ...form.value }
+    if (!payload.isPromotion || payload.promotionalPrice === '') {
+      payload.promotionalPrice = null
+    } else {
+      // Ensure it's passed as a string/number that DB accepts
+      payload.promotionalPrice = String(payload.promotionalPrice)
+    }
+
     if (isEditing.value && editingId.value) {
       await $fetch(`/api/menu/${editingId.value}`, {
         method: 'PUT',
-        body: form.value
+        body: payload
       })
     } else {
       await $fetch('/api/menu', {
         method: 'POST',
-        body: form.value
+        body: payload
       })
     }
     await fetchMenuItems()
@@ -286,7 +344,12 @@ const deleteItem = async (id: string) => {
           <p class="mt-1 text-sm text-slate-500 line-clamp-2 flex-1">{{ item.description || 'Sem descrição.' }}</p>
           
           <div class="mt-4 flex items-center justify-between">
-            <p class="text-lg font-bold text-emerald-600" :class="{'text-emerald-600/50': !item.isAvailable}">R$ {{ Number(item.price).toFixed(2) }}</p>
+            <div class="flex flex-col">
+              <p v-if="item.isPromotion && item.promotionalPrice" class="text-sm text-slate-400 line-through">R$ {{ Number(item.price).toFixed(2) }}</p>
+              <p class="text-lg font-bold text-emerald-600" :class="{'text-emerald-600/50': !item.isAvailable}">
+                R$ {{ item.isPromotion && item.promotionalPrice ? Number(item.promotionalPrice).toFixed(2) : Number(item.price).toFixed(2) }}
+              </p>
+            </div>
             <div class="flex gap-2">
               <button @click.stop="toggleAvailability(item)" :class="[item.isAvailable ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-50']" class="p-1.5 rounded-md transition-colors" :title="item.isAvailable ? 'Marcar como Indisponível' : 'Marcar como Disponível'">
                 <div v-if="item.isAvailable" class="h-5 w-5 rounded-full border-2 border-current flex items-center justify-center">
@@ -366,6 +429,38 @@ const deleteItem = async (id: string) => {
                       <div class="text-sm leading-6">
                         <label for="isAvailable" class="font-medium text-slate-900">Disponível para venda</label>
                         <p class="text-slate-500">Se desmarcado, este item não aparecerá para os clientes.</p>
+                      </div>
+                    </div>
+
+                    <div class="relative flex gap-x-3 mt-4">
+                      <div class="flex h-6 items-center">
+                        <input id="isPromotion" name="isPromotion" type="checkbox" v-model="form.isPromotion" @change="onPromotionChange" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                      </div>
+                      <div class="text-sm leading-6">
+                        <label for="isPromotion" class="font-medium text-slate-900">Item em Promoção</label>
+                        <p class="text-slate-500">Ative para configurar um preço com desconto.</p>
+                      </div>
+                    </div>
+
+                    <div v-if="form.isPromotion" class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                      <div>
+                        <label for="promotionalPrice" class="block text-sm font-medium leading-6 text-slate-900">Preço Promocional (R$)</label>
+                        <div class="relative mt-1 rounded-md shadow-sm">
+                          <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span class="text-slate-500 sm:text-sm">R$</span>
+                          </div>
+                          <input type="number" name="promotionalPrice" id="promotionalPrice" v-model="form.promotionalPrice" @input="calculatePercentage" step="0.01" class="block w-full rounded-md border-0 py-1.5 pl-9 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="0.00">
+                        </div>
+                      </div>
+
+                      <div>
+                        <label for="discountPercentage" class="block text-sm font-medium leading-6 text-slate-900">Desconto (%)</label>
+                        <div class="relative mt-1 rounded-md shadow-sm">
+                          <input type="number" name="discountPercentage" id="discountPercentage" v-model="discountPercentage" @input="calculatePromoPrice" step="1" class="block w-full rounded-md border-0 py-1.5 pl-3 pr-9 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="0">
+                          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                            <span class="text-slate-500 sm:text-sm">%</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
