@@ -5,12 +5,14 @@ export const useAuth = () => {
 
   const { data: sessionData, refresh } = useAsyncData('user-session', async () => {
     try {
-      const { data } = await authClient.getSession({
-        fetchOptions: {
-          headers: useRequestHeaders(['cookie']) as HeadersInit,
-          baseURL: import.meta.client ? undefined : useRequestURL().origin
-        }
-      })
+      const { data } = await authClient.getSession(
+        import.meta.server ? {
+          fetchOptions: {
+            headers: useRequestHeaders(['cookie']) as HeadersInit,
+            baseURL: useRequestURL().origin
+          }
+        } : undefined
+      )
       return data
     } catch (e) {
       return null
