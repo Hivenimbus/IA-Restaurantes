@@ -1,7 +1,7 @@
 import { defineEventHandler, createError, readBody } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
-import { orders } from '~~/server/database/schema'
+import { orders, orderItems, users } from '~~/server/database/schema'
 import { eq, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -34,36 +34,57 @@ export default defineEventHandler(async (event) => {
       .where(and(eq(orders.id, id), eq(orders.userId, user.id)))
       .returning()
 
-    // Webhook Notification Logic
-    const WEBHOOK_URL = 'https://n8n.hivebot.cloud/webhook/006b3cae-3828-40ca-9cfe-0c1334995e27'
-    let message = ''
+    // Fetch order items to build the message
+    const items = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, updatedOrder.id))
 
+    // Format items: "2x Completo, 1x Coca 2L"
+    const itemsLabel = items.length > 0
+      ? items.map(i => `${i.quantity}x ${i.itemName}`).join(', ')
+      : 'sem itens'
+
+    // Build status-specific message text
+    let statusText = ''
     if (status === 'Em preparação') {
-      message = 'O pedido do cliente está em separação, informe a ele em uma mensagem curta'
+      statusText = 'está em preparação'
     } else if (status === 'Enviado') {
-      message = 'O pedido do cliente foi enviado, informe a ele em uma mensagem curta'
+      statusText = 'saiu para entrega'
     } else if (status === 'Entregue') {
-      message = 'O pedido do cliente foi entregue, agradeça a preferência em uma mensagem curta'
+      statusText = 'foi entregue'
     } else if (status === 'Cancelado') {
-      message = 'O pedido do cliente foi cancelado, informe a ele em uma mensagem curta'
+      statusText = 'foi cancelado'
     } else {
-      message = `O status do pedido do cliente mudou para "${status}", informe a ele em uma mensagem curta`
+      statusText = `mudou para "${status}"`
     }
 
-    // Always send notification for any status change
-    try {
-      await $fetch(WEBHOOK_URL, {
-        method: 'POST',
-        body: {
-          message,
-          orderId: updatedOrder.id,
-          customerName: updatedOrder.customerName,
-          customerPhone: updatedOrder.customerPhone, // Sending customer number as requested
-          newStatus: status
-        }
-      })
-    } catch (e) {
-      console.error('Failed to trigger order status webhook', e)
+    const message = `pedido #${updatedOrder.id} (${itemsLabel}) ${statusText}`
+
+    // Fetch the agent webhook URL for this user/restaurant
+    const [userRow] = await db
+      .select({ agentWebhookUrl: users.agentWebhookUrl })
+      .from(users)
+      .where(eq(users.id, user.id))
+
+    const webhookUrl = userRow?.agentWebhookUrl
+
+    if (webhookUrl) {
+      try {
+        await $fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            message,
+            to: updatedOrder.customerPhone ?? ''
+          }
+        })
+        console.log(`[Webhook] Sent to ${webhookUrl}: ${message} → ${updatedOrder.customerPhone}`)
+      } catch (e) {
+        console.error('[Webhook] Failed to trigger order status webhook:', e)
+      }
+    } else {
+      console.log('[Webhook] No agent webhook configured for this restaurant, skipping.')
     }
 
     return updatedOrder

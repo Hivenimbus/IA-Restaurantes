@@ -13,6 +13,7 @@ export const users = pgTable('users', {
     banned: boolean('banned'),
     banReason: text('ban_reason'),
     banExpires: timestamp('ban_expires'),
+    agentWebhookUrl: text('agent_webhook_url'),
 });
 
 export const sessions = pgTable('sessions', {
