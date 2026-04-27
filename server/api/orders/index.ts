@@ -24,7 +24,11 @@ export default defineEventHandler(async (event) => {
     })
 
     // Automatic Mode logic: Check if orders in "Em preparação" should be "Enviado"
-    const [userConfig] = await db.select({ isAutomaticMode: users.isAutomaticMode, averageWaitTime: users.averageWaitTime }).from(users).where(eq(users.id, user.id))
+    const [userConfig] = await db.select({ 
+      isAutomaticMode: users.isAutomaticMode, 
+      averageWaitTime: users.averageWaitTime,
+      agentWebhookUrl: users.agentWebhookUrl
+    }).from(users).where(eq(users.id, user.id))
     if (userConfig?.isAutomaticMode) {
       const waitTimeMs = (userConfig.averageWaitTime || 30) * 60 * 1000
       const now = Date.now()
