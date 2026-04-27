@@ -54,9 +54,8 @@ const fetchRequests = async () => {
   try {
     const data = await $fetch('/api/requests')
     requests.value = data as any[]
-    console.log('[Requests] Fetched:', requests.value.length, requests.value)
   } catch (e) {
-    console.error('[Requests] Failed to fetch requests:', e)
+    console.error('Failed to fetch requests', e)
   }
 }
 
