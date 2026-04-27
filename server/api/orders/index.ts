@@ -31,21 +31,48 @@ export default defineEventHandler(async (event) => {
       let updatedAny = false
 
       for (const order of data) {
+        let newStatus = null;
+
         // Auto-convert pending/waiting states to 'Em preparação'
         const lowerStatus = order.status.toLowerCase()
         if (lowerStatus === 'pendente' || lowerStatus === 'pending' || lowerStatus === 'aguardando') {
-          await db.update(orders).set({ status: 'Em preparação' }).where(eq(orders.id, order.id))
-          order.status = 'Em preparação'
-          updatedAny = true
-        }
-
-        if (order.status === 'Em preparação') {
+          newStatus = 'Em preparação'
+        } else if (order.status === 'Em preparação') {
           const orderTime = new Date(order.createdAt).getTime()
           if (now - orderTime >= waitTimeMs) {
-            await db.update(orders).set({ status: 'Enviado' }).where(eq(orders.id, order.id))
-            order.status = 'Enviado'
-            updatedAny = true
+            newStatus = 'Enviado'
           }
+        }
+
+        if (newStatus) {
+            await db.update(orders).set({ status: newStatus }).where(eq(orders.id, order.id))
+            order.status = newStatus
+            updatedAny = true
+
+            // Trigger Webhook
+            const webhookUrl = userConfig?.agentWebhookUrl;
+            if (webhookUrl) {
+                const itemsLabel = order.orderItems?.length > 0
+                    ? order.orderItems.map((i: any) => `${i.quantity}x ${i.itemName}`).join(', ')
+                    : 'sem itens';
+                
+                const statusText = newStatus === 'Em preparação' ? 'está em preparação' : 'saiu para entrega';
+                const message = `pedido #${order.id} (${itemsLabel}) ${statusText}`;
+
+                try {
+                    await $fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: {
+                            message,
+                            to: order.customerPhone ?? ''
+                        }
+                    })
+                    console.log(`[Webhook Auto-Mode] Sent to ${webhookUrl}: ${message}`)
+                } catch (e) {
+                    console.error('[Webhook Auto-Mode] Failed:', e)
+                }
+            }
         }
       }
     }
