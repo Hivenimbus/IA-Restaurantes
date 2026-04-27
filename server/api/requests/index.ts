@@ -15,10 +15,9 @@ export default defineEventHandler(async (event) => {
     const user = session.user
 
     if (event.method === 'GET') {
-        // Join with orders to find all pending requests for orders owned by this restaurant,
-        // regardless of what userId was stored on the request itself
         const requests = await db.query.orderRequests.findMany({
             where: and(
+                eq(orderRequests.userId, user.id),
                 eq(orderRequests.status, 'pending')
             ),
             orderBy: [desc(orderRequests.createdAt)],
@@ -30,10 +29,7 @@ export default defineEventHandler(async (event) => {
                 }
             }
         })
-
-        // Filter in application layer: only requests whose order belongs to this restaurant
-        const filtered = requests.filter(r => r.order?.userId === user.id)
-        return filtered
+        return requests
     }
 
     if (event.method === 'POST') {
