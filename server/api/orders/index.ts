@@ -31,6 +31,14 @@ export default defineEventHandler(async (event) => {
       let updatedAny = false
 
       for (const order of data) {
+        // Auto-convert pending/waiting states to 'Em preparação'
+        const lowerStatus = order.status.toLowerCase()
+        if (lowerStatus === 'pendente' || lowerStatus === 'pending' || lowerStatus === 'aguardando') {
+          await db.update(orders).set({ status: 'Em preparação' }).where(eq(orders.id, order.id))
+          order.status = 'Em preparação'
+          updatedAny = true
+        }
+
         if (order.status === 'Em preparação') {
           const orderTime = new Date(order.createdAt).getTime()
           if (now - orderTime >= waitTimeMs) {
