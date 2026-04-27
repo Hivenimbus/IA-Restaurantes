@@ -15,25 +15,36 @@ export default defineEventHandler(async (event) => {
     const user = session.user
 
     if (event.method === 'GET') {
-        // Join with orders to find all pending requests for orders owned by this restaurant,
-        // regardless of what userId was stored on the request itself
-        const requests = await db.query.orderRequests.findMany({
-            where: and(
-                eq(orderRequests.status, 'pending')
-            ),
-            orderBy: [desc(orderRequests.createdAt)],
-            with: {
+        // Direct join: fetch pending requests where the order belongs to this restaurant
+        const rows = await db
+            .select({
+                id: orderRequests.id,
+                orderId: orderRequests.orderId,
+                userId: orderRequests.userId,
+                requestType: orderRequests.requestType,
+                status: orderRequests.status,
+                details: orderRequests.details,
+                webhookUrl: orderRequests.webhookUrl,
+                createdAt: orderRequests.createdAt,
                 order: {
-                    with: {
-                        orderItems: true
-                    }
+                    id: orders.id,
+                    customerName: orders.customerName,
+                    customerPhone: orders.customerPhone,
+                    status: orders.status,
+                    userId: orders.userId,
                 }
-            }
-        })
+            })
+            .from(orderRequests)
+            .innerJoin(orders, eq(orderRequests.orderId, orders.id))
+            .where(
+                and(
+                    eq(orderRequests.status, 'pending'),
+                    eq(orders.userId, user.id)
+                )
+            )
+            .orderBy(desc(orderRequests.createdAt))
 
-        // Filter in application layer: only requests whose order belongs to this restaurant
-        const filtered = requests.filter(r => r.order?.userId === user.id)
-        return filtered
+        return rows
     }
 
     if (event.method === 'POST') {
