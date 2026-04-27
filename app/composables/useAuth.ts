@@ -5,15 +5,12 @@ export const useAuth = () => {
 
   const { data: sessionData, refresh } = useAsyncData('user-session', async () => {
     try {
-      const { data } = await authClient.getSession(
-        import.meta.server ? {
-          fetchOptions: {
-            headers: useRequestHeaders(['cookie']) as HeadersInit,
-            baseURL: useRequestURL().origin
-          }
-        } : undefined
-      )
-      return data
+      // Use Nuxt's $fetch to avoid HTTP roundtrips during SSR (calls internal nitro handler directly)
+      const data = await $fetch('/api/auth/get-session', {
+        headers: import.meta.server ? useRequestHeaders(['cookie']) as HeadersInit : undefined
+      }).catch(() => null)
+      
+      return data as any
     } catch (e) {
       return null
     }
