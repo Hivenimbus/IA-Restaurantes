@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { orderRequests, orders } from '~~/server/database/schema'
+import { orderRequests, orders, users } from '~~/server/database/schema'
 import { defineEventHandler, createError, readBody, getRouterParam } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
@@ -73,25 +73,34 @@ export default defineEventHandler(async (event) => {
         // Fetch order to get customer phone
         const [order] = await db.select().from(orders).where(eq(orders.id, request.orderId)).limit(1);
 
-        // Trigger Webhook
-        if (message && order?.customerPhone) {
+        // Fetch the agent webhook URL for this user/restaurant
+        const [userRow] = await db
+            .select({ agentWebhookUrl: users.agentWebhookUrl })
+            .from(users)
+            .where(eq(users.id, user.id))
+
+        const webhookUrl = userRow?.agentWebhookUrl
+
+        // Trigger Webhook using same agent URL as order status
+        if (message && webhookUrl) {
             try {
-                await $fetch('https://n8n.hivebot.cloud/webhook/solicitacoes', {
+                await $fetch(webhookUrl, {
                     method: 'POST',
-                    headers: {
-                        'client_number': order.customerPhone
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: {
                         message,
-                        status,
-                        requestId: request.id,
-                        orderId: request.orderId
+                        to: order?.customerPhone ?? '',
+                        orderId: request.orderId,
+                        userId: user.id
                     }
                 })
+                console.log(`[Webhook] Request ${status} sent to ${webhookUrl} for order #${request.orderId}`)
             } catch (e) {
-                console.error('Failed to trigger webhook', e)
+                console.error('[Webhook] Failed to trigger request webhook:', e)
                 // We don't throw here to avoid failing the main request if webhook fails
             }
+        } else if (!webhookUrl) {
+            console.log('[Webhook] No agent webhook configured for this restaurant, skipping.')
         }
 
         return request

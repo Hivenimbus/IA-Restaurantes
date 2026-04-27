@@ -2,7 +2,15 @@ import { defineEventHandler, createError, readBody } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
 import { orderRequests } from '~~/server/database/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, inArray } from 'drizzle-orm'
+
+// Normalizes request types from external agents (Portuguese) to internal keys
+function normalizeRequestType(type: string): string {
+    const clean = type.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    if (clean.includes('cancelamento') || clean.includes('cancellation')) return 'cancellation'
+    if (clean.includes('edicao') || clean.includes('edition')) return 'edition'
+    return type
+}
 
 export default defineEventHandler(async (event) => {
     const session = await auth.api.getSession({
@@ -18,7 +26,7 @@ export default defineEventHandler(async (event) => {
         const requests = await db.query.orderRequests.findMany({
             where: and(
                 eq(orderRequests.userId, user.id),
-                eq(orderRequests.status, 'pending')
+                inArray(orderRequests.status, ['pending', 'pendente'])
             ),
             orderBy: [desc(orderRequests.createdAt)],
             with: {
@@ -29,7 +37,13 @@ export default defineEventHandler(async (event) => {
                 }
             }
         })
-        return requests
+
+        // Normalize data for frontend consistency
+        return requests.map((r: any) => ({
+            ...r,
+            status: r.status === 'pendente' ? 'pending' : r.status,
+            requestType: normalizeRequestType(r.requestType)
+        }))
     }
 
     if (event.method === 'POST') {
@@ -43,11 +57,8 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        // Normalize requestType
-        const cleanType = body.requestType.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase()
-        let normalizedType = cleanType
-        if (cleanType.includes('cancelamento')) normalizedType = 'cancellation'
-        if (cleanType.includes('edicao')) normalizedType = 'edition'
+        // Normalize requestType using shared helper
+        const normalizedType = normalizeRequestType(body.requestType)
 
         const newRequest = await db.insert(orderRequests).values({
             userId: user.id,
