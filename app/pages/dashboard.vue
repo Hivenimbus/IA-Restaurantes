@@ -7,8 +7,6 @@ import {
   ClockIcon,
   ShoppingBagIcon,
   UserIcon,
-  ArrowPathIcon,
-  SparklesIcon,
   CheckIcon,
   XMarkIcon,
   ArchiveBoxIcon,
@@ -146,36 +144,6 @@ const updateStatus = async (orderId: number, newStatus: string) => {
   }
 }
 
-const simulateOrder = async () => {
-  try {
-    const mockOrder = {
-      customerName: `Cliente Teste ${Math.floor(Math.random() * 100)}`,
-      customerPhone: '11999999999',
-      address: 'Rua Exemplo, 123',
-      paymentMethod: Math.random() > 0.5 ? 'PIX' : 'Cartão',
-      total: (Math.random() * 100 + 20).toFixed(2),
-      status: 'Aguardando',
-      observations: Math.random() > 0.7 ? 'Sem cebola' : '',
-      items: [
-        {
-          menuItemId: null,
-          itemName: 'Item Simulado ' + Math.floor(Math.random() * 5),
-          itemPrice: 25.00,
-          quantity: 1
-        }
-      ]
-    }
-
-    await $fetch('/api/orders', {
-      method: 'POST',
-      body: mockOrder
-    })
-    await fetchOrders()
-  } catch (e) {
-    alert('Erro ao simular pedido')
-  }
-}
-
 const getStatusStyles = (status: string) => {
   switch (status) {
     case 'Aguardando': return 'bg-yellow-50 text-yellow-700 border-yellow-200'
@@ -206,16 +174,6 @@ const stats = computed(() => {
     <div class="sm:flex sm:items-center sm:justify-between mb-8">
       <div>
         <!-- Stats Overview Header -->
-      </div>
-      <div class="flex gap-2">
-         <button @click="fetchOrders(false)" class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
-          <ArrowPathIcon class="-ml-0.5 mr-2 h-5 w-5" :class="{ 'animate-spin': loading }" />
-          Atualizar
-        </button>
-        <button @click="simulateOrder" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors">
-          <SparklesIcon class="-ml-0.5 mr-2 h-5 w-5" />
-          Simular Pedido IA
-        </button>
       </div>
     </div>
 
