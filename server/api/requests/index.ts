@@ -1,7 +1,7 @@
 import { defineEventHandler, createError, readBody } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
-import { orderRequests, orders } from '~~/server/database/schema'
+import { orderRequests } from '~~/server/database/schema'
 import { eq, desc, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -58,20 +58,6 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        // Fetch the order to get the restaurant owner's userId
-        const [order] = await db
-            .select({ userId: orders.userId })
-            .from(orders)
-            .where(eq(orders.id, body.orderId))
-            .limit(1)
-
-        if (!order) {
-            throw createError({ statusCode: 404, message: 'Order not found' })
-        }
-
-        // The request must be associated to the restaurant owner, not the external caller
-        const ownerUserId = order.userId
-
         // Normalize requestType
         const cleanType = body.requestType.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase()
         let normalizedType = cleanType
@@ -79,12 +65,12 @@ export default defineEventHandler(async (event) => {
         if (cleanType.includes('edicao')) normalizedType = 'edition'
 
         const newRequest = await db.insert(orderRequests).values({
-            userId: ownerUserId,
+            userId: user.id,
             orderId: body.orderId,
             requestType: normalizedType,
             details: body.details,
             webhookUrl: body.webhookUrl,
-            status: 'pending'
+            status: 'pending' // Default status
         }).returning()
 
         return newRequest[0]
