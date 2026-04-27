@@ -17,7 +17,17 @@ export default defineEventHandler(async (event) => {
 
     if (event.method === 'PUT') {
         const body = await readBody(event)
-        const { status } = body
+        const { status, dismissed } = body
+
+        // Handle dismissing the request
+        if (dismissed !== undefined) {
+            const updated = await db
+                .update(orderRequests)
+                .set({ dismissed })
+                .where(and(eq(orderRequests.id, Number(id)), eq(orderRequests.userId, user.id)))
+                .returning()
+            return updated[0]
+        }
 
         if (!['approved', 'rejected'].includes(status)) {
             throw createError({

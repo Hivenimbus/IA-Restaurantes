@@ -14,6 +14,8 @@ export const users = pgTable('users', {
     banReason: text('ban_reason'),
     banExpires: timestamp('ban_expires'),
     agentWebhookUrl: text('agent_webhook_url'),
+    isAutomaticMode: boolean('is_automatic_mode').default(false).notNull(),
+    averageWaitTime: integer('average_wait_time').default(30).notNull(),
 });
 
 export const sessions = pgTable('sessions', {
@@ -132,6 +134,7 @@ export const orderRequests = pgTable('order_requests', {
     status: text('status').default('pending').notNull(), // 'pending' | 'approved' | 'rejected'
     details: text('details'),
     webhookUrl: text('webhook_url'),
+    dismissed: boolean('dismissed').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

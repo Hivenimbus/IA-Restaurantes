@@ -17,20 +17,33 @@ export default defineEventHandler(async (event) => {
 
     if (event.method === 'GET') {
         const [user] = await db
-            .select({ agentWebhookUrl: users.agentWebhookUrl })
+            .select({
+                agentWebhookUrl: users.agentWebhookUrl,
+                isAutomaticMode: users.isAutomaticMode,
+                averageWaitTime: users.averageWaitTime
+            })
             .from(users)
             .where(eq(users.id, userId))
 
-        return { agentWebhookUrl: user?.agentWebhookUrl ?? '' }
+        return {
+            agentWebhookUrl: user?.agentWebhookUrl ?? '',
+            isAutomaticMode: user?.isAutomaticMode ?? false,
+            averageWaitTime: user?.averageWaitTime ?? 30
+        }
     }
 
     if (event.method === 'POST' || event.method === 'PUT') {
         const body = await readBody(event)
-        const { agentWebhookUrl } = body
+        const { agentWebhookUrl, isAutomaticMode, averageWaitTime } = body
+
+        const updateData: any = {}
+        if (agentWebhookUrl !== undefined) updateData.agentWebhookUrl = agentWebhookUrl || null
+        if (isAutomaticMode !== undefined) updateData.isAutomaticMode = isAutomaticMode
+        if (averageWaitTime !== undefined) updateData.averageWaitTime = averageWaitTime
 
         await db
             .update(users)
-            .set({ agentWebhookUrl: agentWebhookUrl || null })
+            .set(updateData)
             .where(eq(users.id, userId))
 
         return { success: true }

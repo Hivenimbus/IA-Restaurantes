@@ -1,7 +1,7 @@
 import { defineEventHandler, createError, readBody } from 'h3'
 import { auth } from '~~/server/utils/auth'
 import { db } from '~~/server/utils/db'
-import { orders, orderItems, clients } from '~~/server/database/schema'
+import { orders, orderItems, clients, users } from '~~/server/database/schema'
 import { eq, desc, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -15,19 +15,43 @@ export default defineEventHandler(async (event) => {
   const user = session.user
 
   if (event.method === 'GET') {
-    const data = await db.query.orders.findMany({
+    let data = await db.query.orders.findMany({
       where: eq(orders.userId, user.id),
       orderBy: [desc(orders.createdAt)],
       with: {
         orderItems: true
       }
     })
+
+    // Automatic Mode logic: Check if orders in "Em preparação" should be "Enviado"
+    const [userConfig] = await db.select({ isAutomaticMode: users.isAutomaticMode, averageWaitTime: users.averageWaitTime }).from(users).where(eq(users.id, user.id))
+    if (userConfig?.isAutomaticMode) {
+      const waitTimeMs = (userConfig.averageWaitTime || 30) * 60 * 1000
+      const now = Date.now()
+      let updatedAny = false
+
+      for (const order of data) {
+        if (order.status === 'Em preparação') {
+          const orderTime = new Date(order.createdAt).getTime()
+          if (now - orderTime >= waitTimeMs) {
+            await db.update(orders).set({ status: 'Enviado' }).where(eq(orders.id, order.id))
+            order.status = 'Enviado'
+            updatedAny = true
+          }
+        }
+      }
+    }
+
     return data
   }
 
   if (event.method === 'POST') {
     const body = await readBody(event)
     const { items, ...orderData } = body
+
+    // Fetch user settings for automatic mode
+    const [userConfig] = await db.select({ isAutomaticMode: users.isAutomaticMode }).from(users).where(eq(users.id, user.id))
+    const initialStatus = userConfig?.isAutomaticMode ? 'Em preparação' : (body.status || 'Aguardando')
 
     // 1. Create Order
     const [newOrder] = await db
@@ -37,7 +61,7 @@ export default defineEventHandler(async (event) => {
         customerPhone: body.customerPhone,
         address: body.address,
         paymentMethod: body.paymentMethod,
-        status: body.status || 'Aguardando',
+        status: initialStatus,
         total: body.total,
         observations: body.observations,
         userId: user.id

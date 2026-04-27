@@ -26,6 +26,10 @@ const historySearchQuery = ref('')
 
 const statusOptions = ['Aguardando', 'Em preparação', 'Enviado']
 
+const isAutomaticMode = ref(false)
+const averageWaitTime = ref(30)
+const savingSettings = ref(false)
+
 let refreshInterval: ReturnType<typeof setInterval>
 
 onMounted(async () => {
@@ -37,7 +41,7 @@ onMounted(async () => {
     return navigateTo('/login')
   }
 
-  await Promise.all([fetchOrders(), fetchRequests()])
+  await Promise.all([fetchOrders(), fetchRequests(), fetchSettings()])
 
   // Start polling every 5 seconds for new orders/requests
   refreshInterval = setInterval(() => {
@@ -45,6 +49,34 @@ onMounted(async () => {
     fetchRequests()
   }, 5000)
 })
+
+const fetchSettings = async () => {
+  try {
+    const data: any = await $fetch('/api/settings')
+    isAutomaticMode.value = data.isAutomaticMode || false
+    averageWaitTime.value = data.averageWaitTime || 30
+  } catch (e) {
+    console.error('Failed to fetch settings', e)
+  }
+}
+
+const updateSettings = async () => {
+  savingSettings.value = true
+  try {
+    await $fetch('/api/settings', {
+      method: 'POST',
+      body: {
+        isAutomaticMode: isAutomaticMode.value,
+        averageWaitTime: averageWaitTime.value
+      }
+    })
+  } catch (e) {
+    console.error('Failed to update settings', e)
+    alert('Erro ao salvar configurações do modo automático')
+  } finally {
+    savingSettings.value = false
+  }
+}
 
 onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval)
@@ -83,6 +115,18 @@ const rejectRequest = async (req: any) => {
     await fetchRequests()
   } catch (e) {
     alert('Erro ao rejeitar solicitação')
+  }
+}
+
+const dismissRequest = async (req: any) => {
+  try {
+    await $fetch(`/api/requests/${req.id}`, {
+      method: 'PUT',
+      body: { dismissed: true }
+    })
+    await fetchRequests()
+  } catch (e) {
+    alert('Erro ao fechar notificação')
   }
 }
 
@@ -171,9 +215,42 @@ const stats = computed(() => {
 
 <template>
   <AppLayout>
-    <div class="sm:flex sm:items-center sm:justify-between mb-8">
-      <div>
-        <!-- Stats Overview Header -->
+    <div class="sm:flex sm:items-center sm:justify-between mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <div class="flex items-center gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Modo de Operação</h2>
+          <p class="text-sm text-slate-500">Defina como o sistema deve lidar com o fluxo de pedidos.</p>
+        </div>
+        
+        <div class="ml-4 flex items-center bg-slate-100 p-1 rounded-lg">
+          <button 
+            @click="isAutomaticMode = false; updateSettings()"
+            :class="[!isAutomaticMode ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all']"
+          >
+            Padrão
+          </button>
+          <button 
+            @click="isAutomaticMode = true; updateSettings()"
+            :class="[isAutomaticMode ? 'bg-indigo-600 shadow-sm text-white font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all flex items-center gap-2']"
+          >
+            Automático
+          </button>
+        </div>
+      </div>
+      
+      <div v-if="isAutomaticMode" class="mt-4 sm:mt-0 flex items-center gap-3">
+        <label class="text-sm font-medium text-slate-700">Tempo de Espera (min):</label>
+        <div class="flex items-center gap-2">
+          <input 
+            type="number" 
+            v-model="averageWaitTime" 
+            min="1"
+            class="block w-20 rounded-md border-0 py-1.5 px-3 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
+          >
+          <button @click="updateSettings()" :disabled="savingSettings" class="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md text-sm font-semibold hover:bg-indigo-100 transition disabled:opacity-50">
+            Salvar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -194,9 +271,20 @@ const stats = computed(() => {
              <span v-if="req.details"><strong>Detalhes:</strong> {{ req.details }}</span>
           </p>
         </div>
-        <div class="flex gap-2">
-           <button @click="approveRequest(req)" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">Aprovar</button>
-           <button @click="rejectRequest(req)" class="px-4 py-2 bg-red-100 text-red-700 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-200 transition">Rejeitar</button>
+        <div class="flex items-center gap-3">
+           <template v-if="req.status === 'pending'">
+             <button @click="approveRequest(req)" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">Aprovar</button>
+             <button @click="rejectRequest(req)" class="px-4 py-2 bg-red-100 text-red-700 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-200 transition">Rejeitar</button>
+           </template>
+           <template v-else>
+             <span v-if="req.status === 'approved'" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                <CheckIcon class="h-4 w-4" /> Aceito Automaticamente
+             </span>
+             <span v-else-if="req.status === 'rejected'" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                <XMarkIcon class="h-4 w-4" /> Rejeitado Automaticamente
+             </span>
+             <button @click="dismissRequest(req)" class="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition">Fechar</button>
+           </template>
         </div>
       </div>
     </div>
@@ -361,7 +449,7 @@ const stats = computed(() => {
         <div v-if="activeTab === 'active'" class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-xl overflow-x-auto">
           <div class="flex items-center justify-between gap-4">
             <!-- Status Toggles -->
-            <div class="flex gap-2 flex-1">
+            <div v-if="!isAutomaticMode" class="flex gap-2 flex-1">
               <button 
                 v-for="status in statusOptions" 
                 :key="status"
