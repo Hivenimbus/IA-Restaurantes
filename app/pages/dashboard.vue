@@ -222,38 +222,40 @@ const stats = computed(() => {
           <div>
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
               Modo de Operação
-              <div class="group relative flex items-center">
-                <InformationCircleIcon class="h-5 w-5 text-slate-400 hover:text-indigo-500 cursor-help transition-colors" />
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 md:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-                  <div class="bg-slate-800 text-white text-xs rounded-xl p-4 shadow-xl">
-                    <p class="font-semibold mb-2 text-indigo-300">Entenda os modos:</p>
-                    <ul class="space-y-2 text-slate-300">
-                      <li><strong class="text-white">Padrão:</strong> Você atualiza os status dos pedidos e responde às solicitações de edição/cancelamento manualmente.</li>
-                      <li><strong class="text-white">Automático:</strong> Pedidos avançam de "Em preparação" para "Enviado" sozinhos no tempo definido. As solicitações são auto-respondidas (aceitas ou rejeitadas) dependendo se o pedido já saiu para entrega.</li>
-                    </ul>
-                  </div>
-                  <!-- Arrow pointer -->
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
-                </div>
-              </div>
             </h2>
             <p class="text-sm text-slate-500">Defina como o sistema deve lidar com o fluxo de pedidos.</p>
           </div>
         </div>
         
-        <div class="ml-4 flex items-center bg-slate-100 p-1 rounded-lg">
-          <button 
-            @click="isAutomaticMode = false; updateSettings()"
-            :class="[!isAutomaticMode ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all']"
-          >
-            Padrão
-          </button>
-          <button 
-            @click="isAutomaticMode = true; updateSettings()"
-            :class="[isAutomaticMode ? 'bg-indigo-600 shadow-sm text-white font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all flex items-center gap-2']"
-          >
-            Automático
-          </button>
+        <div class="ml-4 flex items-center gap-3">
+          <div class="flex items-center bg-slate-100 p-1 rounded-lg">
+            <button 
+              @click="isAutomaticMode = false; updateSettings()"
+              :class="[!isAutomaticMode ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all']"
+            >
+              Padrão
+            </button>
+            <button 
+              @click="isAutomaticMode = true; updateSettings()"
+              :class="[isAutomaticMode ? 'bg-indigo-600 shadow-sm text-white font-semibold' : 'text-slate-500 hover:text-slate-700', 'px-4 py-2 rounded-md text-sm transition-all flex items-center gap-2']"
+            >
+              Automático
+            </button>
+          </div>
+          
+          <div class="group relative flex items-center">
+            <InformationCircleIcon class="h-5 w-5 text-slate-400 hover:text-indigo-500 cursor-help transition-colors" />
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 md:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+              <div class="bg-slate-800 text-white text-xs rounded-xl p-4 shadow-xl">
+                <p class="font-semibold mb-2 text-indigo-300">Entenda os modos:</p>
+                <ul class="space-y-2 text-slate-300">
+                  <li><strong class="text-white">Padrão:</strong> Você atualiza os status dos pedidos e responde às solicitações de edição/cancelamento manualmente.</li>
+                  <li><strong class="text-white">Automático:</strong> Pedidos avançam de "Em preparação" para "Enviado" sozinhos no tempo definido. As solicitações são auto-respondidas dependendo se o pedido já saiu para entrega.</li>
+                </ul>
+              </div>
+              <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+            </div>
+          </div>
         </div>
       </div>
       
