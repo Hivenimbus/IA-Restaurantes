@@ -13,6 +13,7 @@ import {
   MagnifyingGlassIcon,
   PhoneIcon,
   ExclamationTriangleIcon,
+  InformationCircleIcon
 } from '@heroicons/vue/24/outline'
 
 const { user, logout, fetchUser } = useAuth()
@@ -217,9 +218,27 @@ const stats = computed(() => {
   <AppLayout>
     <div class="sm:flex sm:items-center sm:justify-between mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
       <div class="flex items-center gap-4">
-        <div>
-          <h2 class="text-lg font-bold text-slate-800">Modo de Operação</h2>
-          <p class="text-sm text-slate-500">Defina como o sistema deve lidar com o fluxo de pedidos.</p>
+        <div class="flex items-start gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              Modo de Operação
+              <div class="group relative flex items-center">
+                <InformationCircleIcon class="h-5 w-5 text-slate-400 hover:text-indigo-500 cursor-help transition-colors" />
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 md:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                  <div class="bg-slate-800 text-white text-xs rounded-xl p-4 shadow-xl">
+                    <p class="font-semibold mb-2 text-indigo-300">Entenda os modos:</p>
+                    <ul class="space-y-2 text-slate-300">
+                      <li><strong class="text-white">Padrão:</strong> Você atualiza os status dos pedidos e responde às solicitações de edição/cancelamento manualmente.</li>
+                      <li><strong class="text-white">Automático:</strong> Pedidos avançam de "Em preparação" para "Enviado" sozinhos no tempo definido. As solicitações são auto-respondidas (aceitas ou rejeitadas) dependendo se o pedido já saiu para entrega.</li>
+                    </ul>
+                  </div>
+                  <!-- Arrow pointer -->
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+                </div>
+              </div>
+            </h2>
+            <p class="text-sm text-slate-500">Defina como o sistema deve lidar com o fluxo de pedidos.</p>
+          </div>
         </div>
         
         <div class="ml-4 flex items-center bg-slate-100 p-1 rounded-lg">
