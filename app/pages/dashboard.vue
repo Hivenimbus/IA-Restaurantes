@@ -245,7 +245,7 @@ const stats = computed(() => {
           
           <div class="group relative flex items-center">
             <InformationCircleIcon class="h-5 w-5 text-slate-400 hover:text-indigo-500 cursor-help transition-colors" />
-            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 md:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+            <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 md:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
               <div class="bg-slate-800 text-white text-xs rounded-xl p-4 shadow-xl">
                 <p class="font-semibold mb-2 text-indigo-300">Entenda os modos:</p>
                 <ul class="space-y-2 text-slate-300">
@@ -253,7 +253,7 @@ const stats = computed(() => {
                   <li><strong class="text-white">Automático:</strong> Pedidos avançam de "Em preparação" para "Enviado" sozinhos no tempo definido. As solicitações são auto-respondidas dependendo se o pedido já saiu para entrega.</li>
                 </ul>
               </div>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-slate-800"></div>
             </div>
           </div>
         </div>
